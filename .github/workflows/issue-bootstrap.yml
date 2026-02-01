@@ -149,6 +149,11 @@ jobs:
           fi
 
           dest="$CODEX_STATE_DIR"
+          if [ ! -d "$src/sessions" ] && [ ! -f "$src/history.jsonl" ] && [ ! -f "$src/config.toml" ]; then
+            dest="$CODEX_SESSIONS_PATH"
+          fi
+
+          mkdir -p "$CODEX_STATE_DIR"
           mkdir -p "$dest"
           cp -a "$src/." "$dest/"
 
