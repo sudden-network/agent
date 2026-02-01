@@ -287,7 +287,7 @@ jobs:
           include-hidden-files: true
 
       - name: Comment on issue
-        if: always()
+        if: ${{ !cancelled() }}
         env:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ inputs.issue_number }}
