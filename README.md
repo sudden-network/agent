@@ -68,7 +68,7 @@ Reusable workflow with these phases:
 1. Checkout target repo (using caller context).
 2. Restore the per-thread session artifact (only that session).
 3. Run Codex with the prompt and restored state:
-   - initial (bootstrap phase): run `codex exec "<prompt>"`.
+   - initial: run `codex exec "<prompt>"`.
    - follow-up (issue thread): restore `CODEX_HOME` from the per-issue artifact, then run `codex exec resume --last -` with the comment as stdin.
    - follow-up (PR thread): same pattern but scoped to the PR thread artifact.
 4. If code changes are requested, create the session branch and commit/push once after the run finishes (see Branch + PR naming below).
@@ -78,7 +78,7 @@ Reusable workflow with these phases:
 
 ### Target repo (thin wrappers)
 
-- **Bootstrap**: `issues` workflow that calls the worker workflow with the issue title + body as the initial prompt.
+- **Issue create**: `issues` workflow that calls the worker workflow with the issue title + body as the initial prompt.
 - **Comment**: `issue_comment` workflow that routes issue comments vs PR comments.
 
 ## Queue options (two viable paths)
@@ -99,7 +99,7 @@ Reusable workflow with these phases:
 ## Feasibility notes / gotchas
 
 - `issue_comment` fires for both issues and PRs; guard with `github.event.issue.pull_request`.
-- For the bootstrap flow, use `issues` events and ignore non-task issue types by label or title prefix.
+- For the issue-create flow, use `issues` events and ignore non-task issue types by label or title prefix.
 - Ignore bot-authored comments to avoid workflow comment loops.
 - Reusable workflow permissions are inherited from the caller; they cannot be elevated in the worker repo.
 - Concurrency group ordering is not guaranteed; pending runs can be replaced.
@@ -111,7 +111,7 @@ Reusable workflow with these phases:
 ## Suggested MVP plan
 
 1. Build worker repo with one reusable workflow.
-2. Add thin caller workflows in one target repo (issue bootstrap + comment-driven).
+2. Add thin caller workflows in one target repo (issue-create + comment-driven).
 3. Add artifact-based session persistence with `CODEX_HOME` restore + `resume --last`.
 4. Add queue logic (Option A first, Option B later).
 
