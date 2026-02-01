@@ -84,13 +84,32 @@ jobs:
       - name: Download session artifact
         id: download_session
         if: ${{ inputs.comment_body != '' && steps.find_artifact.outputs.missing_session == 'false' }}
-        uses: actions/download-artifact@v4
-        continue-on-error: true
-        with:
-          artifact-ids: ${{ steps.find_artifact.outputs.artifact_id }}
-          github-token: ${{ github.token }}
-          repository: ${{ github.repository }}
-          path: ${{ runner.temp }}/codex-session
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          artifact_id="${{ steps.find_artifact.outputs.artifact_id }}"
+          dest="${{ runner.temp }}/codex-session"
+          zip_path="${{ runner.temp }}/codex-session.zip"
+
+          rm -rf "$dest"
+          mkdir -p "$dest"
+
+          if ! gh api "repos/${{ github.repository }}/actions/artifacts/$artifact_id/zip" > "$zip_path"; then
+            echo "download_failed=true" >> "$GITHUB_OUTPUT"
+            echo "Failed to download session artifact; cannot resume." > /tmp/codex_output.txt
+            exit 0
+          fi
+
+          if ! unzip -q "$zip_path" -d "$dest"; then
+            echo "download_failed=true" >> "$GITHUB_OUTPUT"
+            echo "Failed to extract session artifact; cannot resume." > /tmp/codex_output.txt
+            exit 0
+          fi
+
+          echo "download_failed=false" >> "$GITHUB_OUTPUT"
 
       - name: Restore session artifact
         id: restore
@@ -106,9 +125,11 @@ jobs:
             exit 0
           fi
 
-          if [ "${{ steps.download_session.outcome }}" != "success" ]; then
+          if [ "${{ steps.download_session.outputs.download_failed }}" = "true" ]; then
             echo "missing_session=true" >> "$GITHUB_OUTPUT"
-            echo "Session artifact not found; cannot resume." > /tmp/codex_output.txt
+            if [ ! -f /tmp/codex_output.txt ]; then
+              echo "Session artifact download failed; cannot resume." > /tmp/codex_output.txt
+            fi
             echo "codex_exit=1" >> "$GITHUB_OUTPUT"
             exit 0
           fi
