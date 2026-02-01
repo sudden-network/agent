@@ -99,6 +99,29 @@ jobs:
             echo "Edit superseded; skipping stale run." > /tmp/codex_output.txt
           fi
 
+      - name: Verify GH token availability
+        if: ${{ steps.edit_fresh.outputs.stale != 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -z "$GH_TOKEN" ]; then
+            echo "GH_TOKEN is missing."
+          else
+            echo "GH_TOKEN is present (length: ${#GH_TOKEN})."
+          fi
+
+          if [ -z "$GITHUB_TOKEN" ]; then
+            echo "GITHUB_TOKEN is missing."
+          else
+            echo "GITHUB_TOKEN is present (length: ${#GITHUB_TOKEN})."
+          fi
+
+          gh api user --jq '.login' || echo "gh api user failed"
+
       - name: Add eyes reaction
         if: ${{ steps.edit_fresh.outputs.stale != 'true' }}
         continue-on-error: true
