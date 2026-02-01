@@ -176,13 +176,14 @@ jobs:
           if [ -n "$COMMENT_BODY" ]; then
             printf '%s\n' "$COMMENT_BODY" > "$prompt_file"
           else
-            {
-              echo "# Issue"
-              echo "Title: $ISSUE_TITLE"
-              echo
-              echo "Body:"
-              echo "$ISSUE_BODY"
-            } > "$prompt_file"
+            template_file=".github/prompts/issue-bootstrap.md"
+            if [ ! -f "$template_file" ]; then
+              echo "Issue bootstrap prompt template missing." > /tmp/codex_output.txt
+              echo "codex_exit=1" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            python -c $'import os\nfrom pathlib import Path\n\ntemplate_path=Path(os.environ[\"TEMPLATE_FILE\"])\noutput_path=Path(os.environ[\"PROMPT_FILE\"])\n\ntemplate=template_path.read_text(encoding=\"utf-8\")\nreplacements={\n    \"{{ISSUE_TITLE}}\": os.environ.get(\"ISSUE_TITLE\", \"\"),\n    \"{{ISSUE_BODY}}\": os.environ.get(\"ISSUE_BODY\", \"\"),\n}\nfor key, value in replacements.items():\n    template = template.replace(key, value)\n\noutput_path.write_text(template, encoding=\"utf-8\")\n' TEMPLATE_FILE="$template_file" PROMPT_FILE="$prompt_file"
           fi
 
           set +e
