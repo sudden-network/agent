@@ -60,11 +60,21 @@ jobs:
         run: |
           set -euo pipefail
 
-          artifact_run_id=$(gh api "repos/${{ github.repository }}/actions/artifacts?per_page=100" \
-            --jq '[.artifacts[] | select(.name=="codex-worker-session-${{ inputs.issue_number }}") | select(.expired==false)] | sort_by(.created_at) | last | .run_id')
+          missing_session=true
+          artifact_run_id=""
+
+          if ! artifact_run_id=$(gh api "repos/${{ github.repository }}/actions/artifacts?per_page=100" \
+            --jq '[.artifacts[] | select(.name=="codex-worker-session-${{ inputs.issue_number }}") | select(.expired==false)] | sort_by(.created_at) | last | .run_id'); then
+            echo "missing_session=true" >> "$GITHUB_OUTPUT"
+            echo "run_id=" >> "$GITHUB_OUTPUT"
+            echo "Failed to list artifacts; cannot resume. Ensure actions: read permission." > /tmp/codex_output.txt
+            echo "codex_exit=1" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
           if [ "$artifact_run_id" = "null" ] || [ -z "$artifact_run_id" ]; then
             echo "missing_session=true" >> "$GITHUB_OUTPUT"
+            echo "run_id=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -191,13 +201,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ inputs.issue_number }}
+          FIND_CODEX_EXIT: ${{ steps.find_artifact.outputs.codex_exit }}
           CODEX_EXIT: ${{ steps.restore.outputs.codex_exit }}
           CODEX_CODEX_EXIT: ${{ steps.codex.outputs.codex_exit }}
         shell: bash
         run: |
           set -euo pipefail
 
-          codex_exit="${CODEX_EXIT:-$CODEX_CODEX_EXIT}"
+          codex_exit="${CODEX_EXIT:-${FIND_CODEX_EXIT:-$CODEX_CODEX_EXIT}}"
 
           status="success"
           if [ -n "$codex_exit" ] && [ "$codex_exit" -ne 0 ]; then
