@@ -303,7 +303,7 @@ jobs:
           prompt_file="${{ steps.prompt.outputs.prompt_file }}"
 
           set +e
-          codex_args=(--sandbox workspace-write -c "approval_policy=\"never\"" -c "sandbox_workspace_write.network_access=true" -c "shell_environment_policy.inherit=all")
+          codex_args=(--sandbox workspace-write -c "approval_policy=\"never\"" -c "sandbox_workspace_write.network_access=true" -c "shell_environment_policy.inherit=all" -c "shell_environment_policy.ignore_default_excludes=true")
           if [ -n "$MODEL" ]; then
             codex_args+=(--model "$MODEL")
           fi
