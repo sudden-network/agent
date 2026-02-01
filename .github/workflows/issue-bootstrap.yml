@@ -261,6 +261,21 @@ jobs:
             cp "$output_file" "$response_file"
           fi
 
+      - name: Escape inline fences
+        if: ${{ steps.codex.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          input_file=/tmp/codex_response.txt
+          output_file=/tmp/codex_response_sanitized.txt
+
+          if [ ! -f "$input_file" ]; then
+            exit 0
+          fi
+
+          python -c $'from pathlib import Path\n\ninput_path=Path(\"/tmp/codex_response.txt\")\noutput_path=Path(\"/tmp/codex_response_sanitized.txt\")\ntext=input_path.read_text(encoding=\"utf-8\")\nlines=text.splitlines(keepends=True)\nresult=[]\nin_fence=False\nfor line in lines:\n    stripped=line.lstrip()\n    if stripped.startswith(\"```\"):\n        in_fence=not in_fence\n        result.append(line)\n        continue\n    if in_fence:\n        result.append(line)\n    else:\n        result.append(line.replace(\"```\", \"\\\\`\\\\`\\\\`\"))\noutput_path.write_text(\"\".join(result), encoding=\"utf-8\")\n'
+
       - name: Strip Codex auth
         if: ${{ steps.codex.outcome == 'success' }}
         shell: bash
@@ -313,7 +328,9 @@ jobs:
                   echo "(no output)"
                 fi
               else
-                if [ -f /tmp/codex_response.txt ]; then
+                if [ -f /tmp/codex_response_sanitized.txt ]; then
+                  cat /tmp/codex_response_sanitized.txt
+                elif [ -f /tmp/codex_response.txt ]; then
                   cat /tmp/codex_response.txt
                 elif [ -f /tmp/codex_output.txt ]; then
                   cat /tmp/codex_output.txt
