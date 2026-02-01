@@ -137,7 +137,7 @@ jobs:
           fi
 
           src="${{ runner.temp }}/codex-session"
-          if [ -d "$src/sessions" ] && [ ! -f "$src/history.jsonl" ]; then
+          if [ -d "$src/sessions" ] && [ ! -f "$src/history.jsonl" ] && [ ! -f "$src/session_id.txt" ]; then
             src="$src/sessions"
           fi
 
