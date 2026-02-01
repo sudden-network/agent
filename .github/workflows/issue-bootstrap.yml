@@ -1,0 +1,116 @@
+name: Codex Worker Issue Bootstrap
+
+on:
+  workflow_call:
+    inputs:
+      issue_number:
+        type: number
+        required: true
+      issue_title:
+        type: string
+        required: true
+      issue_body:
+        type: string
+        required: false
+    secrets:
+      openai_api_key:
+        required: true
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Codex CLI
+        run: npm install -g @openai/codex
+
+      - name: Run Codex
+        id: codex
+        env:
+          OPENAI_API_KEY: ${{ secrets.openai_api_key }}
+          ISSUE_TITLE: ${{ inputs.issue_title }}
+          ISSUE_BODY: ${{ inputs.issue_body }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          codex login --with-api-key "$OPENAI_API_KEY"
+
+          session_dir="$HOME/.codex/sessions"
+          mkdir -p "$session_dir"
+
+          before=$(ls -1 "$session_dir" 2>/dev/null || true)
+
+          prompt_file=$(mktemp)
+          {
+            echo "# Issue"
+            echo "Title: $ISSUE_TITLE"
+            echo
+            echo "Body:"
+            echo "$ISSUE_BODY"
+          } > "$prompt_file"
+
+          set +e
+          codex exec "$(cat "$prompt_file")" | tee /tmp/codex_output.txt
+          codex_exit=${PIPESTATUS[0]}
+          set -e
+
+          after=$(ls -1 "$session_dir" 2>/dev/null || true)
+
+          session_id=$(comm -13 <(printf '%s\n' "$before" | sort) <(printf '%s\n' "$after" | sort) | head -n 1)
+          if [ -z "$session_id" ]; then
+            session_id=$(ls -t "$session_dir" 2>/dev/null | head -n 1)
+          fi
+
+          if [ -z "$session_id" ]; then
+            echo "session_id=" >> "$GITHUB_OUTPUT"
+          else
+            echo "session_id=$session_id" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "codex_exit=$codex_exit" >> "$GITHUB_OUTPUT"
+
+      - name: Comment on issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          SESSION_ID: ${{ steps.codex.outputs.session_id }}
+          CODEX_EXIT: ${{ steps.codex.outputs.codex_exit }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          status="success"
+          if [ -n "$CODEX_EXIT" ] && [ "$CODEX_EXIT" -ne 0 ]; then
+            status="failed (exit $CODEX_EXIT)"
+          fi
+
+          response_file=/tmp/codex_output.txt
+          if [ ! -f "$response_file" ]; then
+            echo "(no output)" > "$response_file"
+          fi
+
+          comment_body_file=$(mktemp)
+          if [ -n "$SESSION_ID" ]; then
+            echo "<!-- codex-worker-session-id: $SESSION_ID -->" >> "$comment_body_file"
+          fi
+          echo "**Codex Worker** response ($status)" >> "$comment_body_file"
+          echo >> "$comment_body_file"
+          cat "$response_file" >> "$comment_body_file"
+
+          gh api \
+            --method POST \
+            "repos/${{ github.repository }}/issues/$ISSUE_NUMBER/comments" \
+            -f body="$(cat "$comment_body_file")"
