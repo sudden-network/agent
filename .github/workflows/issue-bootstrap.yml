@@ -55,6 +55,27 @@ jobs:
           echo "CODEX_STATE_DIR=$codex_home" >> "$GITHUB_ENV"
           echo "CODEX_SESSIONS_PATH=$codex_home/sessions" >> "$GITHUB_ENV"
 
+      - name: Resolve worker repo for prompts
+        id: worker_repo
+        if: ${{ inputs.comment_body == '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          workflow_ref="${{ github.workflow_ref }}"
+          worker_repo="${workflow_ref%%/.github/workflows/*}"
+          worker_ref="${workflow_ref##*@}"
+          echo "repo=$worker_repo" >> "$GITHUB_OUTPUT"
+          echo "ref=$worker_ref" >> "$GITHUB_OUTPUT"
+          echo "WORKER_PROMPTS_DIR=$RUNNER_TEMP/codex-worker" >> "$GITHUB_ENV"
+
+      - name: Checkout worker prompts
+        if: ${{ inputs.comment_body == '' }}
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.worker_repo.outputs.repo }}
+          ref: ${{ steps.worker_repo.outputs.ref }}
+          path: ${{ runner.temp }}/codex-worker
+
       - name: Codex login
         id: login
         env:
@@ -176,7 +197,7 @@ jobs:
           if [ -n "$COMMENT_BODY" ]; then
             printf '%s\n' "$COMMENT_BODY" > "$prompt_file"
           else
-            template_file=".github/prompts/issue-bootstrap.md"
+            template_file="$WORKER_PROMPTS_DIR/.github/prompts/issue-bootstrap.md"
             if [ ! -f "$template_file" ]; then
               echo "Issue bootstrap prompt template missing." > /tmp/codex_output.txt
               echo "codex_exit=1" >> "$GITHUB_OUTPUT"
