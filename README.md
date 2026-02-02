@@ -5,7 +5,7 @@ GitHub Action (Node) that runs Codex CLI from issues and issue comments.
 ## What this does
 
 - Runs Codex on GitHub-hosted runners.
-- Persists Codex session state per issue via artifacts.
+- Persists Codex session state per issue via [GitHub Actions artifacts](https://docs.github.com/en/actions/how-tos/writing-workflows/choosing-what-your-workflow-does/storing-and-sharing-data-from-a-workflow).
 - Posts responses back to the issue.
 - Can create branches/commits and open PRs when instructed.
 
@@ -74,4 +74,3 @@ jobs:
 - The action runs on an ephemeral runner. It tells Codex to commit and push any repo changes so work persists between runs.
 - Session artifacts are handled automatically by the action; follow‑up comments resume from the latest saved session. Artifacts are retained for 7 days, so conversations expire after that retention window.
 - `AGENTS.md` (if present in the repo root) is loaded automatically and will influence agent behavior.
-
