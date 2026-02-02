@@ -103,8 +103,6 @@ const waitFor = async (fn, timeoutMs = 2000) => {
 
 const setInputs = (overrides: Partial<Record<string, string>> = {}) => {
   const inputs = {
-    issue_number: '',
-    comment_id: '',
     model: '',
     reasoning_effort: '',
     openai_api_key: 'test-key',

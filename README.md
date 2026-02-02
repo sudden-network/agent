@@ -60,8 +60,6 @@ jobs:
       - name: Run action-agent
         uses: sudden-network/action-agent@main
         with:
-          issue_number: ${{ github.event.issue.number }}
-          comment_id: ${{ github.event.comment.id || '' }}
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           github_token: ${{ github.token }}
           # Optional:

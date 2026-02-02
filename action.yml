@@ -3,14 +3,6 @@ name: action-agent
 description: Run Codex CLI for issue/issue_comment threads.
 
 inputs:
-  issue_number:
-    description: GitHub issue number (optional fallback)
-    required: false
-    default: ""
-  comment_id:
-    description: GitHub comment ID (optional)
-    required: false
-    default: ""
   model:
     description: Codex model override (optional)
     required: false

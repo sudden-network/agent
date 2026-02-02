@@ -161,24 +161,16 @@ const writeState = (statePath: string, state: SessionState): void => {
   writeText(statePath, `${JSON.stringify(state, null, 2)}\n`);
 };
 
-const parseOptionalNumber = (value: string): number | null => {
-  if (!value) {
-    return null;
-  }
-  const numberValue = Number(value);
-  return Number.isFinite(numberValue) ? numberValue : null;
-};
-
-const getSubjectFromEvent = (eventName: string, payload: typeof github.context.payload, fallback: number | null): Subject => {
+const getSubjectFromEvent = (eventName: string, payload: typeof github.context.payload): Subject => {
   if (eventName === 'issues') {
-    const number = payload.issue?.number ?? fallback;
+    const number = payload.issue?.number;
     if (!number) {
       throw new Error('Issue number missing from event payload.');
     }
     return { type: 'issue', number };
   }
   if (eventName === 'issue_comment') {
-    const number = payload.issue?.number ?? fallback;
+    const number = payload.issue?.number;
     if (!number) {
       throw new Error('Issue number missing from event payload.');
     }
@@ -190,14 +182,11 @@ const getSubjectFromEvent = (eventName: string, payload: typeof github.context.p
     eventName === 'pull_request_review' ||
     eventName === 'pull_request_review_comment'
   ) {
-    const number = payload.pull_request?.number ?? fallback;
+    const number = payload.pull_request?.number;
     if (!number) {
       throw new Error('Pull request number missing from event payload.');
     }
     return { type: 'pr', number };
-  }
-  if (fallback) {
-    return { type: 'issue', number: fallback };
   }
   throw new Error(`Unsupported event: ${eventName}`);
 };
@@ -546,7 +535,6 @@ const main = async (): Promise<void> => {
   };
 
   try {
-    const issueNumberInput = parseOptionalNumber(core.getInput('issue_number'));
     const model = core.getInput('model');
     const reasoningEffort = core.getInput('reasoning_effort');
     const openaiApiKey = core.getInput('openai_api_key', { required: true });
@@ -556,7 +544,7 @@ const main = async (): Promise<void> => {
     const eventAction = github.context.payload.action;
     octokit = github.getOctokit(githubToken);
 
-    subject = getSubjectFromEvent(eventName, github.context.payload, issueNumberInput);
+    subject = getSubjectFromEvent(eventName, github.context.payload);
 
     const codexEnv = buildEnv({
       ...process.env,
