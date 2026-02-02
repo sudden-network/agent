@@ -545,12 +545,12 @@ describe('Codex Worker action', () => {
 
     expect(exec.exec).toHaveBeenCalledWith(
       'codex',
-      expect.arrayContaining(['-c', 'shell_environment_policy.inherit=all']),
+      expect.arrayContaining(['-c', 'shell_environment_policy.inherit="none"']),
       expect.any(Object)
     );
   });
 
-  test('ignores default env excludes to keep auth vars available', async () => {
+  test('uses explicit env allowlist for subprocesses', async () => {
     setInputs({ issue_number: '30' });
     setContext({ action: 'opened' });
 
@@ -562,7 +562,10 @@ describe('Codex Worker action', () => {
 
     expect(exec.exec).toHaveBeenCalledWith(
       'codex',
-      expect.arrayContaining(['-c', 'shell_environment_policy.ignore_default_excludes=true']),
+      expect.arrayContaining([
+        '-c',
+        'shell_environment_policy.include_only=["PATH","HOME","USER","SHELL","PWD","GITHUB_WORKSPACE","RUNNER_TEMP","TMPDIR","CI","GH_TOKEN","GITHUB_TOKEN","OPENAI_API_KEY","CODEX_HOME","CODEX_STATE_DIR","CODEX_SESSIONS_PATH"]',
+      ]),
       expect.any(Object)
     );
   });
