@@ -140,15 +140,6 @@ const main = async () => {
     if (!openaiApiKey) {
       codexExit = 1;
       createCodexOutput('OPENAI_API_KEY is missing. Add it as a repo/org secret.');
-    } else {
-      const loginExit = await exec.exec('bash', ['-lc', 'printenv OPENAI_API_KEY | codex login --with-api-key'], {
-        env: codexEnv,
-        ignoreReturnCode: true,
-      });
-      if (loginExit !== 0) {
-        codexExit = loginExit;
-        createCodexOutput('Codex login failed.');
-      }
     }
 
     if (eventAction === 'edited') {
@@ -284,6 +275,21 @@ const main = async () => {
         '{{ISSUE_BODY}}': issueBody,
         '{{EDIT_CONTEXT}}': editContext,
       });
+    }
+
+    if (codexExit === null) {
+      const loginExit = await exec.exec(
+        'bash',
+        ['-lc', 'printenv OPENAI_API_KEY | codex login --with-api-key'],
+        {
+          env: codexEnv,
+          ignoreReturnCode: true,
+        }
+      );
+      if (loginExit !== 0) {
+        codexExit = loginExit;
+        createCodexOutput('Codex login failed.');
+      }
     }
 
     if (codexExit === null) {
