@@ -15,6 +15,7 @@ type ExecCallOptions = {
     stderr?: (data: Buffer) => void;
   };
   input?: string | Buffer;
+  ignoreReturnCode?: boolean;
 };
 
 let mockArtifactClient: { downloadArtifact: jest.Mock; uploadArtifact: jest.Mock };
@@ -35,6 +36,9 @@ jest.mock('@actions/exec', () => ({
       return 0;
     }
     if (cmd === 'bash') {
+      if (!opts.ignoreReturnCode && mockLoginExit !== 0) {
+        throw new Error(`Command failed with exit code ${mockLoginExit}.`);
+      }
       return mockLoginExit;
     }
     if (cmd === 'codex') {
@@ -149,6 +153,7 @@ const createOctokit = ({
   commentBody = '',
   commentUrl = 'https://example.com/issues/1#comment',
   artifacts = [] as Artifact[],
+  artifactPages,
 }: {
   issueTitle?: string;
   issueBody?: string;
@@ -156,6 +161,7 @@ const createOctokit = ({
   commentBody?: string;
   commentUrl?: string;
   artifacts?: Artifact[];
+  artifactPages?: Artifact[][];
 } = {}) => ({
   rest: {
     issues: {
@@ -172,7 +178,10 @@ const createOctokit = ({
       createForIssueComment: jest.fn().mockResolvedValue({}),
     },
     actions: {
-      listArtifactsForRepo: jest.fn().mockResolvedValue({ data: { artifacts } }),
+      listArtifactsForRepo: jest.fn().mockImplementation(({ page = 1 }) => {
+        const pageArtifacts = artifactPages ? artifactPages[page - 1] ?? [] : artifacts;
+        return Promise.resolve({ data: { artifacts: pageArtifacts } });
+      }),
     },
   },
 });
@@ -237,8 +246,8 @@ describe('Codex Worker action', () => {
         input: expect.any(Buffer),
       })
     );
-    expect(getCodexInput()).toContain('<title>New issue</title>');
-    expect(getCodexInput()).toContain('<description>Do work</description>');
+    expect(getCodexInput()).toContain('<issue-title>New issue</issue-title>');
+    expect(getCodexInput()).toContain('<issue-body>Do work</description>');
     expect(mockArtifactClient.uploadArtifact).toHaveBeenCalledWith(
       'codex-worker-session-7',
       expect.any(Array),
@@ -284,6 +293,13 @@ describe('Codex Worker action', () => {
 
     const [{ body }] = octokit.rest.issues.createComment.mock.calls[0];
     expect(body).toBe('Hello from Codex');
+    expect(octokit.rest.actions.listArtifactsForRepo).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'codex-worker-session-8',
+        per_page: 100,
+        page: 1,
+      })
+    );
     expect(octokit.rest.reactions.createForIssueComment).toHaveBeenCalledWith({
       owner: 'acme',
       repo: 'demo',
@@ -296,6 +312,59 @@ describe('Codex Worker action', () => {
       expect.objectContaining({ input: expect.any(Buffer) })
     );
     expect(getCodexInput()).toBe('What is up?');
+  });
+
+  test('paginates artifact listing with name filter', async () => {
+    setInputs({ issue_number: '20', comment_id: '300' });
+    setContext({ action: 'created', comment: { body: 'Continue' } });
+
+    const artifactsPage1 = Array.from({ length: 100 }, (_value, index) => {
+      const minute = Math.floor(index / 60);
+      const second = index % 60;
+      return {
+        id: index + 1,
+        name: 'codex-worker-session-20',
+        expired: false,
+        created_at: `2026-02-01T00:${String(minute).padStart(2, '0')}:${String(second).padStart(
+          2,
+          '0'
+        )}Z`,
+        workflow_run: { id: 2000 + index },
+      };
+    });
+    const artifactsPage2 = [
+      {
+        id: 999,
+        name: 'codex-worker-session-20',
+        expired: false,
+        created_at: '2026-02-02T00:00:00Z',
+        workflow_run: { id: 3000 },
+      },
+    ];
+
+    const octokit = createOctokit({
+      commentBody: 'Continue',
+      artifactPages: [artifactsPage1, artifactsPage2],
+    });
+    setOctokit(octokit);
+
+    mockArtifactClient.downloadArtifact.mockImplementation(async (_id, options) => {
+      expect(_id).toBe(999);
+      const sessionsDir = path.join(options.path, 'sessions');
+      fs.mkdirSync(sessionsDir, { recursive: true });
+      fs.writeFileSync(path.join(sessionsDir, 'session.jsonl'), '');
+    });
+
+    await runAction();
+    await waitFor(() => octokit.rest.issues.createComment.mock.calls.length === 1);
+
+    expect(octokit.rest.actions.listArtifactsForRepo).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'codex-worker-session-20',
+        per_page: 100,
+        page: 2,
+      })
+    );
   });
 
   test('fails when follow-up has no session artifact', async () => {
@@ -458,7 +527,7 @@ describe('Codex Worker action', () => {
     await waitFor(() => octokit.rest.issues.createComment.mock.calls.length === 1);
 
     const [{ body }] = octokit.rest.issues.createComment.mock.calls[0];
-    expect(body).toContain('Codex login failed.');
+    expect(body).toContain('Command failed with exit code 1.');
     expect(execMock).not.toHaveBeenCalledWith('codex', expect.anything(), expect.anything());
   });
 
@@ -520,7 +589,7 @@ describe('Codex Worker action', () => {
     setContext({ action: 'edited' });
 
     const octokit = createOctokit({
-      issueUrl: '',
+      issueUrl: 'https://example.com/issues/19',
       artifacts: [
         {
           id: 5,
@@ -555,7 +624,7 @@ describe('Codex Worker action', () => {
         input: expect.any(Buffer),
       })
     );
-    expect(getCodexInput()).toContain('Issue updated. Continue the existing thread; do not restart.');
+    expect(getCodexInput()).toContain('Issue updated: https://example.com/issues/19');
   });
 
   test('uses model and reasoning effort when provided', async () => {
@@ -742,7 +811,12 @@ describe('Codex Worker action', () => {
     await waitFor(() => coreSetFailedMock.mock.calls.length === 1);
 
     expect(coreSetFailedMock).toHaveBeenCalledWith('fail');
-    expect(octokit.rest.issues.createComment).not.toHaveBeenCalled();
+    expect(octokit.rest.issues.createComment).toHaveBeenCalledWith({
+      owner: 'acme',
+      repo: 'demo',
+      issue_number: 22,
+      body: 'fail',
+    });
   });
 
   test('logs reaction failures and continues', async () => {
