@@ -5,8 +5,6 @@ const mockFs = require('fs');
 const mockPath = require('path');
 
 let mockArtifactClient;
-let mockLastCodexArgs = null;
-let mockLastCodexInput = '';
 let mockCodexOutput = '';
 let mockCodexExit = 0;
 let mockLoginExit = 0;
@@ -27,8 +25,6 @@ jest.mock('@actions/exec', () => ({
       return mockLoginExit;
     }
     if (cmd === 'codex') {
-      mockLastCodexArgs = args;
-      mockLastCodexInput = opts.input || '';
       if (opts.env?.CODEX_STATE_DIR) {
         mockFs.mkdirSync(opts.env.CODEX_STATE_DIR, { recursive: true });
         mockFs.writeFileSync(mockPath.join(opts.env.CODEX_STATE_DIR, 'history.jsonl'), '');
@@ -102,6 +98,18 @@ const setContext = ({ action = 'opened', issue, comment } = {}) => {
   github.context.payload.comment = comment || { body: '' };
 };
 
+const getCodexCall = () => exec.exec.mock.calls.find(([cmd]) => cmd === 'codex');
+
+const getCodexArgs = () => {
+  const call = getCodexCall();
+  return call ? call[1] : null;
+};
+
+const getCodexOptions = () => {
+  const call = getCodexCall();
+  return call ? call[2] : null;
+};
+
 const createOctokit = ({
   issueTitle = 'Issue title',
   issueBody = 'Issue body',
@@ -144,8 +152,6 @@ describe('Codex Worker action', () => {
       downloadArtifact: jest.fn(),
       uploadArtifact: jest.fn(),
     };
-    mockLastCodexArgs = null;
-    mockLastCodexInput = '';
     mockCodexExit = 0;
     mockLoginExit = 0;
     mockCodexOutput = `${JSON.stringify({
@@ -177,10 +183,14 @@ describe('Codex Worker action', () => {
       issue_number: 7,
       content: 'eyes',
     });
-    expect(mockLastCodexArgs).toEqual(expect.arrayContaining(['exec', '--json']));
-    expect(mockLastCodexArgs).not.toEqual(expect.arrayContaining(['resume']));
-    expect(mockLastCodexInput).toContain('<title>New issue</title>');
-    expect(mockLastCodexInput).toContain('<description>Do work</description>');
+    expect(exec.exec).toHaveBeenCalledWith(
+      'codex',
+      expect.arrayContaining(['exec', '--json']),
+      expect.any(Object)
+    );
+    expect(getCodexArgs()).not.toEqual(expect.arrayContaining(['resume']));
+    expect(getCodexOptions()?.input).toContain('<title>New issue</title>');
+    expect(getCodexOptions()?.input).toContain('<description>Do work</description>');
     expect(mockArtifactClient.uploadArtifact).toHaveBeenCalledWith(
       'codex-worker-session-7',
       expect.any(Array),
@@ -218,8 +228,8 @@ describe('Codex Worker action', () => {
       comment_id: 55,
       content: 'eyes',
     });
-    expect(mockLastCodexArgs).toEqual(expect.arrayContaining(['resume', '--last']));
-    expect(mockLastCodexInput).toBe('What is up?');
+    expect(getCodexArgs()).toEqual(expect.arrayContaining(['resume', '--last']));
+    expect(getCodexOptions()?.input).toBe('What is up?');
   });
 
   test('fails when follow-up has no session artifact', async () => {
@@ -291,9 +301,9 @@ describe('Codex Worker action', () => {
     await runAction();
     await waitFor(() => octokit.rest.issues.createComment.mock.calls.length === 1);
 
-    expect(mockLastCodexInput).toContain('Edited comment: https://example.com/issues/15#comment-101');
-    expect(mockLastCodexInput).toContain('Respond to the updated content');
-    expect(mockLastCodexInput).toContain('Updated comment body');
+    expect(getCodexOptions()?.input).toContain('Edited comment: https://example.com/issues/15#comment-101');
+    expect(getCodexOptions()?.input).toContain('Respond to the updated content');
+    expect(getCodexOptions()?.input).toContain('Updated comment body');
   });
 
   test('includes edited comment header in response body', async () => {
@@ -390,8 +400,8 @@ describe('Codex Worker action', () => {
 
     const [{ body }] = octokit.rest.issues.createComment.mock.calls[0];
     expect(body.startsWith('Issue updated: https://example.com/issues/14')).toBe(true);
-    expect(mockLastCodexArgs).toEqual(expect.arrayContaining(['resume', '--last']));
-    expect(mockLastCodexInput).toContain('Issue updated');
+    expect(getCodexArgs()).toEqual(expect.arrayContaining(['resume', '--last']));
+    expect(getCodexOptions()?.input).toContain('Issue updated');
   });
 
   test('edited issue uses template edit context when no comment', async () => {
@@ -414,8 +424,8 @@ describe('Codex Worker action', () => {
     await runAction();
     await waitFor(() => octokit.rest.issues.createComment.mock.calls.length === 1);
 
-    expect(mockLastCodexInput).toContain('Issue updated: https://example.com/issues/19');
-    expect(mockLastCodexInput).toContain('Continue the existing thread; do not restart.');
+    expect(getCodexOptions()?.input).toContain('Issue updated: https://example.com/issues/19');
+    expect(getCodexOptions()?.input).toContain('Continue the existing thread; do not restart.');
   });
 
   test('uses model and reasoning effort when provided', async () => {
@@ -428,8 +438,8 @@ describe('Codex Worker action', () => {
     await runAction();
     await waitFor(() => octokit.rest.issues.createComment.mock.calls.length === 1);
 
-    expect(mockLastCodexArgs).toEqual(expect.arrayContaining(['--model', 'gpt-test']));
-    expect(mockLastCodexArgs).toEqual(expect.arrayContaining(['-c', 'model_reasoning_effort=low']));
+    expect(getCodexArgs()).toEqual(expect.arrayContaining(['--model', 'gpt-test']));
+    expect(getCodexArgs()).toEqual(expect.arrayContaining(['-c', 'model_reasoning_effort=low']));
   });
 
   test('handles artifact download failure', async () => {
