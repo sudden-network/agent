@@ -52,10 +52,7 @@ const listFiles = (dir) => {
 };
 
 const readPromptTemplate = () => {
-  const actionPath = process.env.GITHUB_ACTION_PATH;
-  if (!actionPath) {
-    throw new Error('GITHUB_ACTION_PATH is not set.');
-  }
+  const actionPath = process.env.GITHUB_ACTION_PATH || path.resolve(__dirname, '..');
   const templatePath = path.join(actionPath, 'prompt-template.md');
   return readText(templatePath);
 };
