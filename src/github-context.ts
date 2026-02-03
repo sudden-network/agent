@@ -1,6 +1,14 @@
 
 import { context } from '@actions/github';
 
+export const getSubjectType = (): 'issue' | 'pr' => {
+  const { issue, pull_request } = context.payload;
+  if (pull_request || issue?.pull_request) {
+    return 'pr';
+  }
+  return 'issue';
+};
+
 export const getIssueNumber = (): number => {
   const { issue, pull_request } = context.payload;
 
