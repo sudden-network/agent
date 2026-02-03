@@ -1,6 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { context } from '@actions/github';
 import { downloadLatestArtifact, uploadArtifact } from './artifacts';
 import { runCommand } from './exec';
 
@@ -11,12 +12,16 @@ const ensureDir = (dir: string): void => {
   fs.mkdirSync(dir, { recursive: true });
 };
 
+const shouldPersist = (): boolean => Boolean(context.payload.issue || context.payload.pull_request);
+
 const restoreSession = async (githubToken: string): Promise<void> => {
+  if (!shouldPersist()) return;
   ensureDir(CODEX_DIR);
   await downloadLatestArtifact(githubToken, CODEX_DIR);
 };
 
 const persistSession = async (): Promise<void> => {
+  if (!shouldPersist()) return;
   fs.rmSync(path.join(CODEX_DIR, 'auth.json'), { force: true });
   fs.rmSync(path.join(CODEX_DIR, 'tmp'), { recursive: true, force: true });
   await uploadArtifact(CODEX_DIR);
@@ -49,6 +54,5 @@ export const teardown = async (): Promise<void> => {
 };
 
 export const runCodex = async (prompt: string): Promise<void> => {
-  // TODO: pass --skip-git-repo-check when we want to allow non-git workdirs.
-  await runCommand('codex', ['exec', 'resume', '--last', prompt]);
+  await runCommand('codex', ['exec', 'resume', '--last', '--skip-git-repo-check', prompt]);
 };

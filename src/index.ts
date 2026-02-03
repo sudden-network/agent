@@ -1,10 +1,9 @@
 import { setFailed } from '@actions/core';
-import { context } from '@actions/github';
 import { bootstrap, runCodex, teardown } from './codex';
 import { postComment } from './comment';
-import { getIssueNumber, getSubjectType } from './context';
 import { readInputs } from './input';
 import { ensurePermission } from './permissions';
+import { prompt } from "./prompt";
 
 const main = async (): Promise<void> => {
   try {
@@ -12,16 +11,7 @@ const main = async (): Promise<void> => {
 
     await ensurePermission(githubToken);
     await bootstrap({ apiKey, githubToken });
-
-    await runCodex([
-      'You are action-agent, running inside a GitHub Actions runner.',
-      `Repo: ${context.repo.owner}/${context.repo.repo}`,
-      `Event: ${context.eventName}`,
-      `Subject: ${getSubjectType()} #${getIssueNumber()}`,
-      `Workspace: ${process.env.GITHUB_WORKSPACE}`,
-      `Event: ${JSON.stringify(context.payload)}`,
-      'Act autonomously and take action only if it is useful.',
-    ].join('\n'));
+    await runCodex(prompt);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 
