@@ -1,6 +1,8 @@
 import { getExecOutput } from '@actions/exec';
 import type { ExecListeners, ExecOptions } from '@actions/exec';
 
+type StreamMode = 'stdout' | 'stderr' | 'both';
+
 const buildCommandError = (
   command: string,
   args: string[],
@@ -14,8 +16,6 @@ const buildCommandError = (
   const base = `Command failed: ${[command, ...args].join(' ')}`;
   return details ? `${base}\n\n${details}` : `${base} (exit code ${exitCode})`;
 };
-
-type StreamMode = 'stdout' | 'stderr' | 'both';
 
 const buildListeners = (stream: StreamMode): ExecListeners => {
   return {

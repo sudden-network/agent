@@ -1,19 +1,22 @@
 import { getInput } from '@actions/core';
 
-interface Inputs {
-  apiKey: string;
-  githubToken: string;
-  model?: string;
-  reasoningEffort?: string;
-  prompt?: string;
-  persistence: boolean;
-}
-
-export const readInputs = (): Inputs => ({
-  apiKey: getInput('api_key', { required: true }),
-  githubToken: getInput('github_token', { required: true }),
-  model: getInput('model') || undefined,
-  reasoningEffort: getInput('reasoning_effort') || undefined,
-  prompt: getInput('prompt') || undefined,
-  persistence: getInput('persistence').toLowerCase() === 'true',
-});
+export const inputs = {
+  get apiKey(): string {
+    return getInput('api_key', { required: true });
+  },
+  get githubToken(): string {
+    return getInput('github_token', { required: true });
+  },
+  get model(): string | undefined {
+    return getInput('model') || undefined;
+  },
+  get reasoningEffort(): string | undefined {
+    return getInput('reasoning_effort') || undefined;
+  },
+  get prompt(): string | undefined {
+    return getInput('prompt') || undefined;
+  },
+  get resume(): boolean {
+    return getInput('resume').toLowerCase() === 'true';
+  },
+};

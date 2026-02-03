@@ -1,4 +1,5 @@
 import { context, getOctokit } from '@actions/github';
+import { inputs } from './input';
 
 const { actor, repo: { owner, repo } } = context;
 
@@ -6,8 +7,8 @@ const isNotFoundError = (error: unknown): boolean => {
   return Boolean(error && typeof error === 'object' && 'status' in error && (error as { status?: number }).status === 404);
 };
 
-const fetchPermission = async (githubToken: string): Promise<string> => {
-  const octokit = getOctokit(githubToken);
+const fetchPermission = async (): Promise<string> => {
+  const octokit = getOctokit(inputs.githubToken);
 
   try {
     const { data } = await octokit.rest.repos.getCollaboratorPermissionLevel({
@@ -26,8 +27,8 @@ const fetchPermission = async (githubToken: string): Promise<string> => {
   }
 };
 
-export const ensurePermission = async (githubToken: string): Promise<void> => {
-  const permission = await fetchPermission(githubToken);
+export const ensurePermission = async (): Promise<void> => {
+  const permission = await fetchPermission();
 
   if (!(["admin", "write", "maintain"].includes(permission))) {
     throw new Error(`Actor '${actor}' must have write access to ${owner}/${repo}. Detected permission: '${permission}'.`);

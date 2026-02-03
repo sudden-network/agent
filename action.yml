@@ -15,8 +15,8 @@ inputs:
     description: Optional extra instructions for the agent
     required: false
     default: ""
-  persistence:
-    description: Enable session persistence across runs
+  resume:
+    description: Enable session resume across runs
     required: false
   api_key:
     description: Model provider API key

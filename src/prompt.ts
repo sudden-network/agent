@@ -1,6 +1,7 @@
 import { context } from '@actions/github';
+import { inputs } from './input';
 
-export const buildPrompt = (prompt?: string): string => `
+export const buildPrompt = (): string => `
 You are action-agent, running inside a GitHub Actions runner.
 
 Workflow context:
@@ -8,5 +9,5 @@ Workflow context:
 ${JSON.stringify(context)}
 \`\`\`
 
-${prompt ?? "Act autonomously and take action only if it is useful."}
+${inputs.prompt ?? "Act autonomously and take action only if it is useful."}
 `.trim();
