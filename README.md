@@ -5,7 +5,7 @@ GitHub Action (Node) that runs Codex CLI from issues and issue comments.
 ## What this does
 
 - Runs Codex on GitHub-hosted runners.
-- Persists Codex session state per issue via [Workflow Artifacts](https://docs.github.com/en/actions/concepts/workflows-and-actions/workflow-artifacts).
+- Optionally persists Codex session state per issue via [Workflow Artifacts](https://docs.github.com/en/actions/concepts/workflows-and-actions/workflow-artifacts).
 - Posts responses back to the issue.
 - Can create branches/commits and open PRs when instructed.
 
@@ -21,7 +21,7 @@ GitHub Action (Node) that runs Codex CLI from issues and issue comments.
 - `contents: write` — push branches/commits back to the repo.
 - `issues: write` — add reactions and post issue comments.
 - `pull-requests: write` — create draft PRs from branches.
-- `actions: read` — list/download artifacts for session restore.
+- `actions: read` — list/download artifacts for session restore (only if persistence is enabled).
 
 ## Quick start (caller workflow)
 
@@ -40,7 +40,7 @@ permissions:
   contents: write
   issues: write
   pull-requests: write
-  actions: read
+  actions: read # only if persistence is enabled
 
 jobs:
   action-agent:
@@ -55,15 +55,16 @@ jobs:
       - name: Run action-agent
         uses: sudden-network/action-agent@main
         with:
-          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          api_key: ${{ secrets.OPENAI_API_KEY }}
           github_token: ${{ github.token }}
           # Optional:
           # model: gpt-5.1-codex-mini
           # reasoning_effort: low
+          # persistence: true
 ```
 
 ## Notes
 
 - The action runs on an ephemeral runner. It tells Codex to commit and push any repo changes so work persists between runs.
-- Session artifacts are handled automatically by the action; follow‑up comments resume from the latest saved session. Artifacts are retained for 7 days, so conversations expire after that retention window.
+- Session artifacts are handled automatically when persistence is enabled; follow‑up comments resume from the latest saved session. Artifacts are retained for 7 days, so conversations expire after that retention window.
 - `AGENTS.md` (if present in the repo root) is loaded automatically and will influence agent behavior.

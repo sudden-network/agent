@@ -1,4 +1,4 @@
-import { getInput } from '@actions/core';
+import { getBooleanInput, getInput } from '@actions/core';
 
 interface Inputs {
   apiKey: string;
@@ -6,6 +6,7 @@ interface Inputs {
   model?: string;
   reasoningEffort?: string;
   prompt?: string;
+  persistence: boolean;
 }
 
 export const readInputs = (): Inputs => ({
@@ -14,4 +15,5 @@ export const readInputs = (): Inputs => ({
   model: getInput('model') || undefined,
   reasoningEffort: getInput('reasoning_effort') || undefined,
   prompt: getInput('prompt') || undefined,
+  persistence: getBooleanInput('persistence'),
 });

@@ -12,16 +12,17 @@ const ensureDir = (dir: string): void => {
   fs.mkdirSync(dir, { recursive: true });
 };
 
-const shouldPersist = (): boolean => Boolean(context.payload.issue || context.payload.pull_request);
+const shouldPersist = (persistence: boolean): boolean =>
+  persistence && Boolean(context.payload.issue || context.payload.pull_request);
 
-const restoreSession = async (githubToken: string): Promise<void> => {
-  if (!shouldPersist()) return;
+const restoreSession = async (githubToken: string, persistence: boolean): Promise<void> => {
+  if (!shouldPersist(persistence)) return;
   ensureDir(CODEX_DIR);
   await downloadLatestArtifact(githubToken, CODEX_DIR);
 };
 
-const persistSession = async (): Promise<void> => {
-  if (!shouldPersist()) return;
+const persistSession = async (persistence: boolean): Promise<void> => {
+  if (!shouldPersist(persistence)) return;
   fs.rmSync(path.join(CODEX_DIR, 'auth.json'), { force: true });
   fs.rmSync(path.join(CODEX_DIR, 'tmp'), { recursive: true, force: true });
   await uploadArtifact(CODEX_DIR);
@@ -40,17 +41,19 @@ const login = async (apiKey: string): Promise<void> => {
 export const bootstrap = async ({
   apiKey,
   githubToken,
+  persistence,
 }: {
   apiKey: string;
   githubToken: string;
+  persistence: boolean;
 }) => {
   await install();
-  await restoreSession(githubToken);
+  await restoreSession(githubToken, persistence);
   await login(apiKey);
 };
 
-export const teardown = async (): Promise<void> => {
-  await persistSession();
+export const teardown = async (persistence: boolean): Promise<void> => {
+  await persistSession(persistence);
 };
 
 export const runCodex = async (prompt: string): Promise<void> => {
