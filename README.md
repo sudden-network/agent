@@ -31,7 +31,7 @@ Because you can attach `action-agent` to any workflow trigger and provide a tail
 ## Configuring the agent
 
 - Use `prompt` for per-workflow instructions (triage rules, review style, escalation policy, etc).
-- If your repo has an `AGENTS.md` at the repo root, Codex will pick it up and use it as persistent guidance across runs (see this repo's [AGENTS.md](AGENTS.md) for an example).
+- If you want repo-level instructions, add an `AGENTS.md` at the repo root and run this action after `actions/checkout` so Codex can read it.
 
 ## Permissions
 
@@ -69,6 +69,7 @@ This action configures the GitHub MCP server for Codex and passes `GITHUB_TOKEN`
 ## Quick start examples
 
 All examples assume you created a secret named `OPENAI_API_KEY`.
+Tip: run this action after `actions/checkout` if you want Codex to read repository contents (including `AGENTS.md`).
 
 ### 1) Issue assistant
 
