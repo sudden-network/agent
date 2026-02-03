@@ -52,11 +52,6 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Setup node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
       - name: Run action-agent
         uses: sudden-network/action-agent@main
         with:

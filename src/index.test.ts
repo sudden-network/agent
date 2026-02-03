@@ -105,7 +105,7 @@ const setInputs = (overrides: Partial<Record<string, string>> = {}) => {
   const inputs = {
     model: '',
     reasoning_effort: '',
-    openai_api_key: 'test-key',
+    api_key: 'test-key',
     github_token: 'ghs_test',
     ...overrides,
   };
