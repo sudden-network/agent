@@ -65,9 +65,9 @@ const login = async () => {
 
 export const bootstrap = async () => {
   await install();
-  await configureMcp();
   await restoreSession();
   await login();
+  await configureMcp();
 };
 
 export const teardown = async () => {
