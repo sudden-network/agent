@@ -133,8 +133,9 @@ jobs:
           github_token: ${{ github.token }}
           resume: true
           prompt: |
-            Review this PR. Be concise and concrete.
-            If you can fix something safely, open a follow-up PR with the change.
+            Review this pull request. Be concise and specific.
+            Focus on correctness, security, and maintainability.
+            If you find issues, leave inline comments when appropriate and propose concrete fixes.
 ```
 
 ### Scheduled agent
