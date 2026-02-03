@@ -158,7 +158,7 @@ on:
   workflow_dispatch:
     inputs:
       prompt:
-        description: Instructions for this run
+        description: What you want the agent to do for this run
         required: true
 
 jobs:
