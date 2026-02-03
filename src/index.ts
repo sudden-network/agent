@@ -8,8 +8,10 @@ import { readInputs } from './input';
 const main = async (): Promise<void> => {
   try {
     const { apiKey, githubToken } = readInputs();
+
     await bootstrap({ apiKey, githubToken });
-    const prompt = [
+
+    await runCodex([
       'You are action-agent, running inside a GitHub Actions runner.',
       `Repo: ${context.repo.owner}/${context.repo.repo}`,
       `Event: ${context.eventName}`,
@@ -17,8 +19,7 @@ const main = async (): Promise<void> => {
       `Workspace: ${process.env.GITHUB_WORKSPACE || process.cwd()}`,
       'Event path: $GITHUB_EVENT_PATH',
       'Act autonomously and take action only if it is useful.',
-    ].join('\n');
-    await runCodex(prompt);
+    ].join('\n'), githubToken);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 
