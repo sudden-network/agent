@@ -358,6 +358,10 @@ const startGitHubMcpServer = async (githubToken: string) => {
     res.end('Method Not Allowed');
   };
 
+  // TODO(high): This local HTTP MCP endpoint has no auth beyond localhost. In GitHub Actions,
+  // any process in the same job could hit 127.0.0.1:<port>/mcp and invoke GitHub API ops with
+  // the job token. Consider a shared secret header, unix socket binding, or restricting access
+  // to the Codex child process.
   const server = http.createServer((req, res) => {
     handleRequest(req, res).catch((error: unknown) => {
       if (res.headersSent) return;

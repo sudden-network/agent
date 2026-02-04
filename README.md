@@ -5,7 +5,7 @@ Run the [OpenAI Codex CLI](https://github.com/openai/codex) as a GitHub Action f
 This action is intentionally thin:
 - Installs a pinned `@openai/codex` CLI version.
 - Logs in with your `api_key`.
-- Configures the [GitHub MCP server](https://github.com/github/github-mcp-server) so Codex can interact with GitHub using the workflow `github_token` (scoped by your workflow `permissions`).
+- Starts a built-in [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server so Codex can interact with GitHub (scoped by your workflow `permissions`).
 - Optionally resumes a per-issue / per-PR Codex session via GitHub [Workflow Artifacts](https://docs.github.com/en/actions/concepts/workflows-and-actions/workflow-artifacts).
 - Runs `codex exec` with a prompt built from the GitHub event context + your optional `prompt` input.
 
@@ -14,7 +14,7 @@ This action is intentionally thin:
 Because you can attach `action-agent` to any workflow trigger and provide a tailored `prompt`, you can build focused agents, for example:
 - Issue auto-triage: ask the right questions, label, detect duplicates, close with references.
 - PR reviews: summarize changes, identify risks, propose fixes, open follow-up PRs.
-- Scheduled automation: periodic code security sweeps, cleanup, recurring maintenance.
+- Scheduled automation: periodic code security audits, cleanup, recurring maintenance.
 - One-off automations via workflow dispatch: "triage everything with label X", "draft release notes", "summarize open incidents".
 
 ## Inputs
@@ -22,7 +22,7 @@ Because you can attach `action-agent` to any workflow trigger and provide a tail
 | Input | Required | Description |
 | --- | --- | --- |
 | `api_key` | yes | Model provider API key (used for `codex login`). |
-| `github_token` | yes | GitHub token used by the action (API + artifacts) and passed to Codex as `GITHUB_TOKEN` for MCP. |
+| `github_token` | yes | GitHub token used by the action (MCP server + artifacts). |
 | `model` | no | Codex model override (passed to `codex exec --model`). |
 | `reasoning_effort` | no | Codex reasoning effort override (passed via `-c model_reasoning_effort=...`). |
 | `prompt` | no | Additional instructions for the agent. |
@@ -49,6 +49,11 @@ Settings -> Actions -> Workflow permissions -> "Allow GitHub Actions to create a
 
 ## Persistent sessions
 
+When you enable `resume`, the agent doesn't start from scratch on every new comment or update. Instead, it resumes the previous Codex session for the same issue or pull request, so it can:
+- Keep the full context of an evolving thread (requirements, decisions, past suggestions).
+- Reference earlier comments naturally, even after many follow-ups.
+- Stay consistent across multiple workflow runs (for example: issue opened -> clarifying Q&A -> later comment -> later edit -> etc.).
+
 When `resume: true` and the event is tied to an issue or pull request, action-agent:
 - Downloads the latest Workflow Artifact for that thread (`action-agent-issue-<n>` or `action-agent-pr-<n>`).
 - Restores it into `~/.codex` before running Codex.
@@ -61,10 +66,11 @@ Notes:
 
 ## GitHub MCP (how the agent talks to GitHub)
 
-This action configures the GitHub MCP server for Codex and passes `GITHUB_TOKEN` to the Codex process.
+This action starts a local MCP server that exposes GitHub tools to Codex.
 
 - MCP inherits the same workflow `permissions` you grant to `github_token`.
-- You do not need to loosen the Codex sandbox for Codex to interact with GitHub.
+- The `github_token` is held by the action process (not exposed directly to Codex).
+- For advanced cases, use `github.octokit_request` to call arbitrary GitHub REST endpoints.
 
 ## Quick start examples
 
@@ -204,4 +210,3 @@ jobs:
 
 - `403: Resource not accessible by integration` typically means missing workflow permissions (`contents: write`, `pull-requests: write`, `issues: write`, etc.).
 - `Resume is enabled but the workflow lacks actions: read permission.` means you set `resume: true` but didn't grant `actions: read`.
-- If the workflow succeeds but you don't see a comment, check the run logs. By design, Codex decides when/where to comment (if at all); tune this with the `prompt` input.
