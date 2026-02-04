@@ -1,14 +1,13 @@
 import { setFailed } from '@actions/core';
 import { bootstrap, runCodex, teardown } from './codex';
-import { postErrorComment } from './comment';
-import { isIssueOrPullRequest } from './context';
-import { ensurePermission } from './permissions';
+import { postErrorComment } from './github/comment';
+import { isIssueOrPullRequest } from './github/context';
+import { ensurePermission } from './github/permissions';
 import { buildPrompt } from './prompt';
 
 const main = async (): Promise<void> => {
   try {
-    await ensurePermission();
-    await bootstrap();
+    await Promise.all([ensurePermission(), bootstrap()]);
     await runCodex(buildPrompt());
     await teardown();
   } catch (error) {

@@ -2,23 +2,22 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { context } from '@actions/github';
-import { downloadLatestArtifact, uploadArtifact } from './artifacts';
+import { downloadLatestArtifact, uploadArtifact } from './github/artifacts';
 import { runCommand } from './exec';
-import { inputs } from './input';
-import { isPermissionError } from './permissions';
+import { githubMcpServer } from './github/mcp';
+import { inputs } from './github/input';
+import { isPermissionError } from './github/error';
 
 const CODEX_VERSION = '0.93.0';
 const CODEX_DIR = path.join(os.homedir(), '.codex');
 const CODEX_CONFIG_PATH = path.join(CODEX_DIR, 'config.toml');
-const MCP_SERVER_URL = 'https://api.githubcopilot.com/mcp/';
-const MCP_TOKEN_ENV_NAME = 'GITHUB_TOKEN';
+const mcpServer = githubMcpServer(inputs.githubToken);
 
 const ensureDir = (dir: string) => fs.mkdirSync(dir, { recursive: true });
 
-const buildConfig = () => `
+const buildConfig = async () => `
 [mcp_servers.github]
-url = "${MCP_SERVER_URL}"
-bearer_token_env_var = "${MCP_TOKEN_ENV_NAME}"
+url = "${await mcpServer.url}"
 `.trim();
 
 const shouldResume = (): boolean => {
@@ -29,9 +28,9 @@ const shouldResume = (): boolean => {
   return Boolean(context.payload.issue || context.payload.pull_request);
 };
 
-const configureMcp = () => {
+const configureMcp = async () => {
   ensureDir(CODEX_DIR);
-  fs.writeFileSync(CODEX_CONFIG_PATH, buildConfig());
+  fs.writeFileSync(CODEX_CONFIG_PATH, await buildConfig());
 };
 
 const restoreSession = async () => {
@@ -49,6 +48,7 @@ const restoreSession = async () => {
 
 const persistSession = async () => {
   if (!shouldResume()) return;
+  fs.rmSync(CODEX_CONFIG_PATH, { force: true });
   fs.rmSync(path.join(CODEX_DIR, 'auth.json'), { force: true });
   fs.rmSync(path.join(CODEX_DIR, 'tmp'), { recursive: true, force: true });
   await uploadArtifact(CODEX_DIR);
@@ -65,14 +65,12 @@ const login = async () => {
 };
 
 export const bootstrap = async () => {
-  await install();
-  configureMcp();
-  await restoreSession();
+  await Promise.all([install(), restoreSession(), configureMcp()]);
   await login();
 };
 
 export const teardown = async () => {
-  await persistSession();
+  await Promise.all([mcpServer.close(), persistSession()]);
 };
 
 export const runCodex = async (prompt: string) => {
@@ -87,7 +85,7 @@ export const runCodex = async (prompt: string) => {
       ...(inputs.reasoningEffort ? ['-c', `model_reasoning_effort=${inputs.reasoningEffort}`] : []),
       prompt,
     ],
-    { env: { ...process.env, [MCP_TOKEN_ENV_NAME]: inputs.githubToken } },
+    {},
     'stderr',
   );
 };
