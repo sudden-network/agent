@@ -60,7 +60,6 @@ When `resume: true` and the event is tied to an issue or pull request, action-ag
 - Uploads the updated session state after the run.
 
 Notes:
-- Resume is blocked on public repositories (the action throws).
 - Resume requires `actions: read` to list/download artifacts.
 - Artifact retention is controlled by your repo/org settings (see [Workflow Artifacts](https://docs.github.com/en/actions/concepts/workflows-and-actions/workflow-artifacts)).
 
@@ -202,8 +201,8 @@ jobs:
 
 ## Security
 
+- The action only runs on private repositories and fails on public/unknown visibility.
 - The action refuses to run unless the triggering `github.actor` has write access (admin/write/maintain) to the repo.
-- The action also blocks runs when the content author association is not `OWNER`, `MEMBER`, or `COLLABORATOR` (when present in the payload).
 - GitHub side effects are constrained by the workflow `permissions` you grant to `GITHUB_TOKEN`.
 - By default, `GITHUB_TOKEN` is scoped to the repository running the workflow: it cannot write to other repositories unless you supply a broader token with cross-repo access.
 - Codex runs in `read-only` sandbox mode: it can read files but cannot write to disk or access the network, even from shell commands.

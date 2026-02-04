@@ -22,9 +22,6 @@ url = "${await mcpServer.url}"
 
 const shouldResume = (): boolean => {
   if (!inputs.resume) return false;
-  if (context.payload.repository?.private !== true) {
-    throw new Error('Resume is only supported on private repositories.');
-  }
   return Boolean(context.payload.issue || context.payload.pull_request);
 };
 
