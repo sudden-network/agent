@@ -59,9 +59,11 @@ const install = async () => {
 };
 
 const login = async () => {
-  await runCommand('bash', ['-lc', 'printenv OPENAI_API_KEY | codex login --with-api-key'], {
-    env: { OPENAI_API_KEY: inputs.apiKey },
-  });
+  await runCommand(
+    'codex',
+    ['login', '--with-api-key'],
+    { input: Buffer.from(inputs.apiKey, 'utf8') },
+  );
 };
 
 export const bootstrap = async () => {
