@@ -20,7 +20,7 @@ const main = async (): Promise<void> => {
     setFailed(`action-agent failed: ${message}`);
 
     if (isIssueOrPullRequest()) {
-      await postErrorComment(message);
+      await postErrorComment();
     }
   }
 };

@@ -85,14 +85,14 @@ export const runCodex = async (prompt: string) => {
     'codex',
     [
       'exec',
+      '-',
       'resume',
       '--last',
       '--skip-git-repo-check',
       ...(inputs.model ? ['--model', inputs.model] : []),
       ...(inputs.reasoningEffort ? ['-c', `model_reasoning_effort=${inputs.reasoningEffort}`] : []),
-      prompt,
     ],
-    {},
+    { input: Buffer.from(prompt, 'utf8') },
     'stderr',
   );
 };

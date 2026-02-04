@@ -4,7 +4,7 @@ import { getIssueNumber } from './context';
 import { inputs } from './input';
 import { isPermissionError } from './error';
 
-export const postComment = async (comment: string): Promise<void> => {
+export const postComment = async (comment: string) => {
   const { owner, repo } = context.repo;
 
   try {
@@ -23,9 +23,10 @@ export const postComment = async (comment: string): Promise<void> => {
   }
 };
 
-export const postErrorComment = async (comment: string): Promise<void> => {
+export const postErrorComment = async () => {
+  const { serverUrl, runId } = context;
   const { owner, repo } = context.repo;
-  const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+  const runUrl = `${serverUrl}/${owner}/${repo}/actions/runs/${runId}`;
 
-  await postComment(`action-agent failed. See workflow run: ${runUrl}`);
+  await postComment(`action-agent failed, see workflow run: ${runUrl}`);
 };
