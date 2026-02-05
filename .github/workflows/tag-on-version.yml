@@ -1,0 +1,52 @@
+name: tag-on-version
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Tag via workflow-agent
+        uses: sudden-network/workflow-agent@main
+        with:
+          agent_api_key: ${{ secrets.OPENAI_API_KEY }}
+          github_token: ${{ github.token }}
+          prompt: |
+            Goal: when package.json version changes on main, tag the current commit and move v{major}.
+
+            Inputs:
+            - owner: ${{ github.repository_owner }}
+            - repo: ${{ github.event.repository.name }}
+            - before_sha: ${{ github.event.before }}
+            - after_sha: ${{ github.sha }}
+
+            Steps:
+            1) Fetch `package.json` at both SHAs (before_sha and after_sha) via:
+               GET /repos/{owner}/{repo}/contents/package.json?ref={sha}
+               Read the `version` field from the file.
+
+            2) If versions match, stop.
+
+            3) Determine the major version (first number before the dot).
+               Use the full package.json version for `v{version}` (e.g. 1.2.3).
+
+            4) Check if tag `v{version}` exists via:
+               GET /repos/{owner}/{repo}/git/ref/tags/v{version}
+               If it exists, stop.
+
+            5) Create tag ref:
+               POST /repos/{owner}/{repo}/git/refs
+               { "ref": "refs/tags/v{version}", "sha": "{after}" }
+
+            6) Move `v{major}` to the current SHA:
+               PATCH /repos/{owner}/{repo}/git/refs/tags/v{major}
+               { "sha": "{after}", "force": true }
+               If the ref is missing, create it with POST /repos/{owner}/{repo}/git/refs.
+
+            Log what you did.
