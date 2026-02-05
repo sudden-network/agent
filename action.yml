@@ -1,5 +1,8 @@
 name: Workflow Agent Action
-author: sudden-network
+author: Sudden
+branding:
+  icon: arrow-right
+  color: red
 
 description: Run programmable agents on any GitHub Workflow to enable automation across your repo.
 
