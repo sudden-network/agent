@@ -14,11 +14,11 @@ const main = async () => {
       ensurePrivateRepo();
       await ensureWriteAccess();
 
-      const { resumeStatus } = await agent.bootstrap({
+      const { resumed } = await agent.bootstrap({
         mcpServers: [await githubMcpServer.start()]
       });
 
-      await agent.run(buildPrompt({ resumeStatus }));
+      await agent.run(buildPrompt({ resumed }));
     } finally {
       await Promise.allSettled([
         githubMcpServer.stop(),

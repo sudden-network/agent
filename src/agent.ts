@@ -1,13 +1,11 @@
 import type { McpServerConfig } from './mcp';
 
-export type ResumeStatus = 'skipped' | 'not_found' | 'restored';
-
 export interface BootstrapOptions {
   mcpServers: McpServerConfig[]
 }
 
 export interface BootstrapResult {
-  resumeStatus: ResumeStatus
+  resumed: boolean
 }
 
 export interface Agent {

@@ -7,7 +7,7 @@ import { runCommand } from '../../exec';
 import { inputs } from '../../github/input';
 import { isPermissionError } from '../../github/error';
 import { info } from '@actions/core';
-import { BootstrapOptions, BootstrapResult, ResumeStatus } from '../../agent';
+import { BootstrapOptions, BootstrapResult } from '../../agent';
 import type { McpServerConfig } from '../../mcp';
 
 const CODEX_VERSION = '0.93.0';
@@ -31,17 +31,17 @@ const configureMcpServers = (mcpServers: McpServerConfig[]) => {
   fs.writeFileSync(CODEX_CONFIG_PATH, buildConfig(mcpServers));
 };
 
-const restoreSession = async (): Promise<ResumeStatus> => {
-  if (!shouldResume()) return 'skipped';
+const restoreSession = async (): Promise<boolean> => {
+  if (!shouldResume()) return false;
   ensureDir(CODEX_SESSIONS_PATH);
 
   try {
     if (await downloadLatestArtifact(CODEX_SESSIONS_PATH)) {
       info('Restored previous session');
-      return 'restored';
+      return true;
     } else {
       info('No previous session found');
-      return 'not_found';
+      return false;
     }
   } catch (error) {
     if (isPermissionError(error)) {
@@ -78,14 +78,14 @@ export const parseModelInput = (value: string | undefined) => {
 };
 
 export const bootstrap = async ({ mcpServers }: BootstrapOptions): Promise<BootstrapResult> => {
-  const [resumeStatus] = await Promise.all([
+  const [resumed] = await Promise.all([
     restoreSession(),
     install(),
   ]);
   configureMcpServers(mcpServers);
   await login();
 
-  return { resumeStatus };
+  return { resumed };
 };
 
 export const teardown = async () => {
