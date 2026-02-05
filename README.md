@@ -2,20 +2,38 @@
 
 Run the [OpenAI Codex CLI](https://github.com/openai/codex) as a GitHub Action for any [workflow trigger](https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows) (issues, pull requests, comments, schedule, workflow_dispatch, etc.).
 
-This action is intentionally thin:
-- Installs a pinned `@openai/codex` CLI version.
-- Logs in with your `api_key`.
-- Starts a built-in [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server so Codex can interact with GitHub (scoped by your workflow `permissions`).
-- Optionally resumes a per-issue / per-PR Codex session via GitHub [Workflow Artifacts](https://docs.github.com/en/actions/concepts/workflows-and-actions/workflow-artifacts).
-- Runs `codex exec` with a prompt built from the GitHub event context + your optional `prompt` input.
+## Persistent sessions
+
+Sessions persist per issue and pull request, so the agent picks up where it left off across new comments, edits, and new commits.
+
+On pull requests, this makes long review threads practical: the agent can track what it already reviewed, follow up on changes, and stay consistent across a long back-and-forth.
+
+Example: open a PR, get feedback, push fixes, and the next run picks up the same thread with context.
+
+Notes:
+- Session persistence requires the `actions: read` permission to download artifacts.
+- Artifact retention is controlled by your repo/org settings (see [Workflow Artifacts](https://docs.github.com/en/actions/concepts/workflows-and-actions/workflow-artifacts)).
+- Scheduled and manual dispatch runs start fresh.
+
+## GitHub MCP (how the agent talks to GitHub)
+
+This action starts a local MCP server that exposes GitHub tools to the agent.
+
+- MCP inherits the same workflow `permissions` you grant to `github_token`.
+- The `github_token` is held by the action process (not exposed directly to the agent).
+- Use `github.octokit_request` to call GitHub REST endpoints.
 
 ## What you can build with this
 
-Because you can attach `action-agent` to any workflow trigger and provide a tailored `prompt`, you can build focused agents, for example:
-- Issue auto-triage: ask the right questions, label, detect duplicates, close with references.
-- PR reviews: summarize changes, identify risks, propose fixes, open follow-up PRs.
-- Scheduled automation: periodic code security audits, cleanup, recurring maintenance.
-- One-off automations via workflow dispatch: "triage everything with label X", "draft release notes", "summarize open incidents".
+Because you can attach `action-agent` to any workflow trigger and provide a tailored `prompt`, you can build focused agents. For example:
+
+- [Code review](recipes/code-review.md) - Review PRs, respond to comments, and open follow-up issues.
+- [Issue assistant](recipes/issue-assistant.md) - Auto-triage issue threads with clarifying questions and duplicate detection.
+- [Manual dispatch](recipes/manual-dispatch.md) - Kick off a one-off run with a custom prompt.
+- [Security audit](recipes/security-audit.md) - Run periodic code security reviews and file issues.
+- [Todo to issues](recipes/todo-to-issue.md) - Create issues for new TODOs introduced on develop.
+
+Have a useful recipe? [Open a pull request](https://github.com/sudden-network/action-agent/compare) and share it.
 
 ## Inputs
 
@@ -42,171 +60,15 @@ Common permissions:
 - `issues: write` to post issue comments (including PR conversation comments).
 - `pull-requests: write` to comment on PRs and open PRs.
 - `contents: write` to push branches/commits.
-- `actions: read` to download/list artifacts (required only when `resume: true`).
+- `actions: read` to download/list artifacts.
 
 If you want the agent to open PRs, also enable the repo setting:
 Settings -> Actions -> Workflow permissions -> "Allow GitHub Actions to create and approve pull requests."
 
-## Persistent sessions
+## Security
 
-When you enable `resume`, the agent doesn't start from scratch on every new comment or update. Instead, it resumes the previous Codex session for the same issue or pull request, so it can:
-- Keep the full context of an evolving thread (requirements, decisions, past suggestions).
-- Reference earlier comments naturally, even after many follow-ups.
-- Stay consistent across multiple workflow runs (for example: issue opened -> clarifying Q&A -> later comment -> later edit -> etc.).
-
-When `resume: true` and the event is tied to an issue or pull request, action-agent:
-- Downloads the latest Workflow Artifact for that thread (`action-agent-issue-<n>` or `action-agent-pr-<n>`).
-- Restores it into `~/.codex` before running Codex.
-- Uploads the updated session state after the run.
-
-Notes:
-- Resume is blocked on public repositories (the action throws).
-- Resume requires `actions: read` to list/download artifacts.
-- Artifact retention is controlled by your repo/org settings (see [Workflow Artifacts](https://docs.github.com/en/actions/concepts/workflows-and-actions/workflow-artifacts)).
-
-## GitHub MCP (how the agent talks to GitHub)
-
-This action starts a local MCP server that exposes GitHub tools to Codex.
-
-- MCP inherits the same workflow `permissions` you grant to `github_token`.
-- The `github_token` is held by the action process (not exposed directly to Codex).
-- For advanced cases, use `github.octokit_request` to call arbitrary GitHub REST endpoints.
-
-## Quick start examples
-
-All examples assume you created a secret named `OPENAI_API_KEY`.
-
-### Issue assistant
-
-Auto-triage issue threads: ask clarifying questions, detect duplicates, and keep context across follow-ups.
-
-```yaml
-name: action-agent-issues
-
-on:
-  issues:
-    types: [opened, edited]
-  issue_comment:
-    types: [created, edited]
-
-jobs:
-  agent:
-    runs-on: ubuntu-latest
-    permissions:
-      issues: write
-      actions: read # required only because resume: true
-    steps:
-      - uses: sudden-network/action-agent@main
-        with:
-          api_key: ${{ secrets.OPENAI_API_KEY }}
-          github_token: ${{ github.token }}
-          resume: true
-          prompt: |
-            Triage this thread.
-            Ask clarifying questions if needed.
-            If it's a duplicate, link the canonical issue and close this one.
-```
-
-### PR reviewer
-
-Review pull requests, respond to PR comments, and open follow-up issues.
-
-```yaml
-name: action-agent-pr-reviewer
-
-on:
-  pull_request:
-    types: [opened, edited, synchronize, ready_for_review]
-  issue_comment:
-    types: [created, edited] # PR conversation comments also come through here
-  pull_request_review_comment:
-    types: [created, edited] # inline comments
-
-jobs:
-  agent:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-      issues: write
-      actions: read # only if resume: true
-    steps:
-      - uses: actions/checkout@v4 # required for Codex to read/modify repo files
-
-      - uses: sudden-network/action-agent@main
-        with:
-          api_key: ${{ secrets.OPENAI_API_KEY }}
-          github_token: ${{ github.token }}
-          resume: true
-          prompt: |
-            Review this pull request. Be concise and specific.
-            Focus on correctness, security, and maintainability.
-            If you find issues, leave inline comments when appropriate and propose concrete fixes.
-```
-
-### Scheduled agent
-
-Run periodic automation that would be annoying to do manually (e.g. a regular code security review that files issues).
-
-```yaml
-name: action-agent-scheduled
-
-on:
-  schedule:
-    - cron: "0 9 * * 1-5" # weekdays
-
-jobs:
-  agent:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      issues: write
-    steps:
-      - uses: actions/checkout@v4 # required for Codex to read repo files
-      - uses: sudden-network/action-agent@main
-        with:
-          api_key: ${{ secrets.OPENAI_API_KEY }}
-          github_token: ${{ github.token }}
-          prompt: |
-            Perform a security review of this repository.
-            Open GitHub issues for any findings (include file paths, risk, and suggested fixes).
-```
-
-### Manual dispatch
-
-Kick off an agent run on demand with a one-off prompt (release notes, repo audit, triage a label, etc).
-
-```yaml
-name: action-agent-dispatch
-
-on:
-  workflow_dispatch:
-    inputs:
-      prompt:
-        description: What you want the agent to do for this run
-        required: true
-
-jobs:
-  agent:
-    runs-on: ubuntu-latest
-    permissions:
-      issues: write
-      pull-requests: write
-    steps:
-      - uses: sudden-network/action-agent@main
-        with:
-          api_key: ${{ secrets.OPENAI_API_KEY }}
-          github_token: ${{ github.token }}
-          prompt: ${{ inputs.prompt }}
-```
-
-## Safety model
-
+- The action only runs on private repositories and fails on public/unknown visibility.
 - The action refuses to run unless the triggering `github.actor` has write access (admin/write/maintain) to the repo.
-- Codex runs with its default `codex exec` sandbox settings.
 - GitHub side effects are constrained by the workflow `permissions` you grant to `GITHUB_TOKEN`.
-
-## Troubleshooting
-
-- `403: Resource not accessible by integration` typically means missing workflow permissions (`contents: write`, `pull-requests: write`, `issues: write`, etc.).
-- `Resume is enabled but the workflow lacks actions: read permission.` means you set `resume: true` but didn't grant `actions: read`.
+- By default, `GITHUB_TOKEN` is scoped to the repository running the workflow: it cannot write to other repositories unless you supply a broader token with cross-repo access.
+- Codex runs in `read-only` sandbox mode: it can read files but cannot write to disk or access the network, even from shell commands.

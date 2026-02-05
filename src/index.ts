@@ -2,12 +2,14 @@ import { setFailed } from '@actions/core';
 import { bootstrap, runCodex, teardown } from './codex';
 import { postErrorComment } from './github/comment';
 import { isIssueOrPullRequest } from './github/context';
-import { ensurePermission } from './github/permissions';
 import { buildPrompt } from './prompt';
+import { ensurePrivateRepo, ensureWriteAccess } from "./github/security";
 
-const main = async (): Promise<void> => {
+const main = async () => {
   try {
-    await Promise.all([ensurePermission(), bootstrap()]);
+    ensurePrivateRepo();
+    await ensureWriteAccess();
+    await bootstrap();
     await runCodex(buildPrompt());
     await teardown();
   } catch (error) {
@@ -16,7 +18,7 @@ const main = async (): Promise<void> => {
     setFailed(`action-agent failed: ${message}`);
 
     if (isIssueOrPullRequest()) {
-      await postErrorComment(message);
+      await postErrorComment();
     }
   }
 };

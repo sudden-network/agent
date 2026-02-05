@@ -11,7 +11,8 @@ import { isPermissionError } from './github/error';
 const CODEX_VERSION = '0.93.0';
 const CODEX_DIR = path.join(os.homedir(), '.codex');
 const CODEX_CONFIG_PATH = path.join(CODEX_DIR, 'config.toml');
-const mcpServer = githubMcpServer(inputs.githubToken);
+const CODEX_SESSIONS_PATH = path.join(CODEX_DIR, 'sessions');
+const mcpServer = githubMcpServer();
 
 const ensureDir = (dir: string) => fs.mkdirSync(dir, { recursive: true });
 
@@ -22,9 +23,6 @@ url = "${await mcpServer.url}"
 
 const shouldResume = (): boolean => {
   if (!inputs.resume) return false;
-  if (context.payload.repository?.private !== true) {
-    throw new Error('Resume is only supported on private repositories.');
-  }
   return Boolean(context.payload.issue || context.payload.pull_request);
 };
 
@@ -35,9 +33,9 @@ const configureMcp = async () => {
 
 const restoreSession = async () => {
   if (!shouldResume()) return;
-  ensureDir(CODEX_DIR);
+  ensureDir(CODEX_SESSIONS_PATH);
   try {
-    await downloadLatestArtifact(inputs.githubToken, CODEX_DIR);
+    await downloadLatestArtifact(CODEX_SESSIONS_PATH);
   } catch (error) {
     if (isPermissionError(error)) {
       throw new Error('Resume is enabled but the workflow lacks `actions: read` permission.');
@@ -48,10 +46,7 @@ const restoreSession = async () => {
 
 const persistSession = async () => {
   if (!shouldResume()) return;
-  fs.rmSync(CODEX_CONFIG_PATH, { force: true });
-  fs.rmSync(path.join(CODEX_DIR, 'auth.json'), { force: true });
-  fs.rmSync(path.join(CODEX_DIR, 'tmp'), { recursive: true, force: true });
-  await uploadArtifact(CODEX_DIR);
+  await uploadArtifact(CODEX_SESSIONS_PATH);
 };
 
 const install = async () => {
@@ -59,18 +54,27 @@ const install = async () => {
 };
 
 const login = async () => {
-  await runCommand('bash', ['-lc', 'printenv OPENAI_API_KEY | codex login --with-api-key'], {
-    env: { OPENAI_API_KEY: inputs.apiKey },
-  });
+  await runCommand(
+    'codex',
+    ['login', '--with-api-key'],
+    { input: Buffer.from(inputs.apiKey, 'utf8') },
+  );
 };
 
 export const bootstrap = async () => {
-  await Promise.all([install(), restoreSession(), configureMcp()]);
+  await Promise.all([
+    install(),
+    restoreSession(),
+    configureMcp(),
+  ]);
   await login();
 };
 
 export const teardown = async () => {
-  await Promise.all([mcpServer.close(), persistSession()]);
+  await Promise.allSettled([
+    mcpServer.close(),
+    persistSession(),
+  ]);
 };
 
 export const runCodex = async (prompt: string) => {
@@ -78,14 +82,15 @@ export const runCodex = async (prompt: string) => {
     'codex',
     [
       'exec',
+      '--sandbox=read-only',
+      ...(inputs.model ? [`--model=${inputs.model}`] : []),
+      ...(inputs.reasoningEffort ? [`--config=model_reasoning_effort=${inputs.reasoningEffort}`] : []),
+      '-',
       'resume',
       '--last',
       '--skip-git-repo-check',
-      ...(inputs.model ? ['--model', inputs.model] : []),
-      ...(inputs.reasoningEffort ? ['-c', `model_reasoning_effort=${inputs.reasoningEffort}`] : []),
-      prompt,
     ],
-    {},
+    { input: Buffer.from(prompt, 'utf8') },
     'stderr',
   );
 };

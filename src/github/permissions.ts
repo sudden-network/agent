@@ -1,14 +1,12 @@
-import { context, getOctokit } from '@actions/github';
-import { inputs } from './input';
-import { isNotFoundError } from "./error";
+import { context } from '@actions/github';
+import { isNotFoundError } from './error';
+import { getOctokit } from './octokit';
 
-const { actor, repo: { owner, repo } } = context;
-
-const fetchPermission = async (): Promise<string> => {
-  const octokit = getOctokit(inputs.githubToken);
+export const fetchPermission = async (): Promise<string> => {
+  const { actor, repo: { owner, repo } } = context;
 
   try {
-    const { data } = await octokit.rest.repos.getCollaboratorPermissionLevel({
+    const { data } = await getOctokit().rest.repos.getCollaboratorPermissionLevel({
       owner,
       repo,
       username: actor,
@@ -21,13 +19,5 @@ const fetchPermission = async (): Promise<string> => {
     }
 
     throw new Error(`Failed to verify permissions for '${actor}': ${error instanceof Error ? error.message : 'unknown error'}`);
-  }
-};
-
-export const ensurePermission = async (): Promise<void> => {
-  const permission = await fetchPermission();
-
-  if (!(["admin", "write", "maintain"].includes(permission))) {
-    throw new Error(`Actor '${actor}' must have write access to ${owner}/${repo}. Detected permission: '${permission}'.`);
   }
 };
