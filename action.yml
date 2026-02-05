@@ -1,4 +1,4 @@
-name: ZKQ-7719
+name: Repo Agent
 author: sudden-network
 
 description: Run programmable agents on any GitHub Workflow to enable automation across your repo.
