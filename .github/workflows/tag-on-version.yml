@@ -12,44 +12,41 @@ jobs:
   tag:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Tag via workflow-agent
+        uses: sudden-network/workflow-agent@main
         with:
-          fetch-depth: 0
+          agent_api_key: ${{ secrets.OPENAI_API_KEY }}
+          github_token: ${{ github.token }}
+          prompt: |
+            Goal: when package.json version changes on main, tag the current commit and move v{major}.
 
-      - name: Detect version bump
-        id: version
-        run: |
-          set -euo pipefail
-          before=""
-          if git cat-file -e "${{ github.event.before }}:package.json" 2>/dev/null; then
-            before=$(git show "${{ github.event.before }}:package.json" | node -e "const fs=require('fs');const data=fs.readFileSync(0,'utf8');console.log(JSON.parse(data).version)")
-          fi
-          after=$(node -e "const fs=require('fs');const data=fs.readFileSync('package.json','utf8');console.log(JSON.parse(data).version)")
-          if [ "$before" = "$after" ]; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          echo "changed=true" >> "$GITHUB_OUTPUT"
-          echo "version=$after" >> "$GITHUB_OUTPUT"
+            Inputs:
+            - owner: ${{ github.repository_owner }}
+            - repo: ${{ github.event.repository.name }}
+            - before_sha: ${{ github.event.before }}
+            - after_sha: ${{ github.sha }}
 
-      - name: Tag release
-        if: steps.version.outputs.changed == 'true'
-        run: |
-          set -euo pipefail
-          version="${{ steps.version.outputs.version }}"
-          case "$version" in
-            1.*) ;;
-            *) echo "skip: major not 1"; exit 0 ;;
-          esac
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git fetch --tags
-          if git rev-parse "refs/tags/v$version" >/dev/null 2>&1; then
-            echo "tag exists: v$version"
-            exit 0
-          fi
-          git tag "v$version"
-          git tag -f v1 "v$version"
-          git push origin "v$version"
-          git push -f origin v1
+            Steps:
+            1) Fetch `package.json` at both SHAs (before_sha and after_sha) via:
+               GET /repos/{owner}/{repo}/contents/package.json?ref={sha}
+               Read the `version` field from the file.
+
+            2) If versions match, stop.
+
+            3) Determine the major version (first number before the dot).
+               Use the full package.json version for `v{version}` (e.g. 1.2.3).
+
+            4) Check if tag `v{version}` exists via:
+               GET /repos/{owner}/{repo}/git/ref/tags/v{version}
+               If it exists, stop.
+
+            5) Create tag ref:
+               POST /repos/{owner}/{repo}/git/refs
+               { "ref": "refs/tags/v{version}", "sha": "{after}" }
+
+            6) Move `v{major}` to the current SHA:
+               PATCH /repos/{owner}/{repo}/git/refs/tags/v{major}
+               { "sha": "{after}", "force": true }
+               If the ref is missing, create it with POST /repos/{owner}/{repo}/git/refs.
+
+            Log what you did.
