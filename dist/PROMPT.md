@@ -27,10 +27,8 @@
   - `POST /repos/{owner}/{repo}/issues/comments/{comment_id}/reactions`
   - `POST /repos/{owner}/{repo}/pulls/comments/{comment_id}/reactions`
 
-## Workflow context:
+## Workflow context
 
-```json
-{{workflow_context}}
-```
+Read the GitHub event JSON at `{{github_event_path}}` to understand what triggered this run.
 
 {{extra_prompt}}
