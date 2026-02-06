@@ -13,12 +13,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Tag via workflow-agent
-        uses: sudden-network/workflow-agent@main
+        uses: sudden-network/workflow-agent@v1
         with:
           agent_api_key: ${{ secrets.OPENAI_API_KEY }}
           github_token: ${{ github.token }}
           prompt: |
-            Goal: when package.json version changes on main, tag the current commit and move v{major}.
+            Goal: on every push to main, move v1 to the current commit. If package.json version changed, create v{version} and a GitHub release for it.
 
             Inputs:
             - owner: ${{ github.repository_owner }}
@@ -31,22 +31,32 @@ jobs:
                GET /repos/{owner}/{repo}/contents/package.json?ref={sha}
                Read the `version` field from the file.
 
-            2) If versions match, stop.
-
-            3) Determine the major version (first number before the dot).
-               Use the full package.json version for `v{version}` (e.g. 1.2.3).
-
-            4) Check if tag `v{version}` exists via:
+            2) If versions differ, check if tag `v{version}` (full version, e.g. 1.2.3) exists via:
                GET /repos/{owner}/{repo}/git/ref/tags/v{version}
-               If it exists, stop.
-
-            5) Create tag ref:
+               If it does not exist, create it with:
                POST /repos/{owner}/{repo}/git/refs
-               { "ref": "refs/tags/v{version}", "sha": "{after}" }
+               { "ref": "refs/tags/v{version}", "sha": "{after_sha}" }
+               If the tag already exists, skip release creation.
 
-            6) Move `v{major}` to the current SHA:
-               PATCH /repos/{owner}/{repo}/git/refs/tags/v{major}
-               { "sha": "{after}", "force": true }
+            3) If you created a new `v{version}` tag, create a release:
+               - Check if release exists:
+                 GET /repos/{owner}/{repo}/releases/tags/v{version}
+                 If it exists, stop.
+               - Find the previous semver tag by listing tags:
+                 GET /repos/{owner}/{repo}/tags
+                 Pick the first tag that matches vX.Y.Z and is not v{version}.
+               - Generate release notes:
+                 POST /repos/{owner}/{repo}/releases/generate-notes
+                 { "tag_name": "v{version}", "target_commitish": "{after_sha}", "previous_tag_name": "<previous tag>" }
+                 If no previous tag, omit previous_tag_name.
+               - Create the release:
+                 POST /repos/{owner}/{repo}/releases
+                 { "tag_name": "v{version}", "name": "v{version}", "body": "<generated notes>" }
+               - If a release for v{version} already exists, do nothing.
+
+            4) Move `v1` to the current SHA:
+               PATCH /repos/{owner}/{repo}/git/refs/tags/v1
+               { "sha": "{after_sha}", "force": true }
                If the ref is missing, create it with POST /repos/{owner}/{repo}/git/refs.
 
             Log what you did.
