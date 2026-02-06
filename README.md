@@ -29,7 +29,7 @@ This makes iterative work practical: the agent remembers what it already covered
 | `agent` | no | Agent to run (`codex` default). |
 | `agent_api_key` | yes | Agent API key. |
 | `github_token` | yes | GitHub token used by the action. |
-| `model` | no | Agent model override (for Codex, append reasoning effort with /, e.g. `gpt-5.2-codex/xhigh`) |
+| `model` | no | Agent model override (for Codex, append reasoning effort with /, e.g. `gpt-5.3-codex/xhigh`) |
 | `prompt` | no | Additional instructions for the agent. |
 | `resume` | no | Enable session persistence. Default: `false`. |
 

@@ -10,7 +10,7 @@ import { info } from '@actions/core';
 import { BootstrapOptions, BootstrapResult } from '../../agent';
 import type { McpServerConfig } from '../../mcp';
 
-const CODEX_VERSION = '0.93.0';
+const CODEX_VERSION = '0.98.0';
 const CODEX_DIR = path.join(os.homedir(), '.codex');
 const CODEX_CONFIG_PATH = path.join(CODEX_DIR, 'config.toml');
 const CODEX_SESSIONS_PATH = path.join(CODEX_DIR, 'sessions');

@@ -25,25 +25,25 @@ describe('parseModelInput', () => {
   });
 
   it('parses model only', () => {
-    expect(parseModelInput('gpt-5.2-codex')).toEqual({ model: 'gpt-5.2-codex', reasoningEffort: undefined });
+    expect(parseModelInput('gpt-5.3-codex')).toEqual({ model: 'gpt-5.3-codex', reasoningEffort: undefined });
   });
 
   it('parses model and reasoning effort', () => {
-    expect(parseModelInput('gpt-5.2-codex/xhigh')).toEqual({
-      model: 'gpt-5.2-codex',
+    expect(parseModelInput('gpt-5.3-codex/xhigh')).toEqual({
+      model: 'gpt-5.3-codex',
       reasoningEffort: 'xhigh',
     });
   });
 
   it('trims whitespace', () => {
-    expect(parseModelInput(' gpt-5.2-codex / high ')).toEqual({
-      model: 'gpt-5.2-codex',
+    expect(parseModelInput(' gpt-5.3-codex / high ')).toEqual({
+      model: 'gpt-5.3-codex',
       reasoningEffort: 'high',
     });
   });
 
   it('handles empty model or effort', () => {
     expect(parseModelInput('/high')).toEqual({ model: undefined, reasoningEffort: 'high' });
-    expect(parseModelInput('gpt-5.2-codex/')).toEqual({ model: 'gpt-5.2-codex', reasoningEffort: undefined });
+    expect(parseModelInput('gpt-5.3-codex/')).toEqual({ model: 'gpt-5.3-codex', reasoningEffort: undefined });
   });
 });
