@@ -51,7 +51,7 @@ Authentication is agent-specific, but this action exposes two generic ways to pa
 
 Treat `agent_auth_file` like a password (it grants access to the underlying agent account).
 
-For the default agent (`codex`), `agent_auth_file` can be used to inject Codex's `auth.json` (from `~/.codex/auth.json`).
+For the default agent (`codex`), `agent_auth_file` can be used to inject Codex's `auth.json` (from `~/.codex/auth.json`) so the CLI can use a ChatGPT subscription.
 
 ## Permissions
 
