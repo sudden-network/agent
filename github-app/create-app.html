@@ -1,0 +1,98 @@
+<!doctype html>
+<html>
+  <body>
+    <form id="manifest-form" method="post">
+      <label>
+        Target:
+        <select id="target">
+          <option value="personal">Personal</option>
+          <option value="org">Organization</option>
+        </select>
+      </label>
+
+      <label id="org-field" style="display: none;">
+        Org slug:
+        <input id="org" placeholder="your-org" required />
+      </label>
+
+      <textarea id="manifest-editor" rows="20" cols="80" style="display: block; width: 100%; max-width: 960px; margin-bottom: 12px;"></textarea>
+      <input type="hidden" name="manifest" id="manifest">
+      <button id="submit-button" type="submit" style="display: block;">Create GitHub App from manifest</button>
+    </form>
+
+    <h3>Finalize app creation</h3>
+    <p>After GitHub redirects you, copy the <code>code</code> from the URL and paste it here:</p>
+    <input id="code-input" placeholder="paste code from redirect URL" style="display: block; width: 100%; max-width: 960px; margin-bottom: 12px;" />
+    <pre id="conversion-command"></pre>
+
+    <script id="manifest-json" type="application/json">
+      {
+        "name": "Workflow Agent",
+        "url": "https://github.com/sudden-network/workflow-agent",
+        "hook_attributes": {
+          "url": "https://example.com/github/webhook",
+          "active": false
+        },
+        "redirect_url": "https://github.com/settings/apps/new",
+        "public": false,
+        "default_permissions": {
+          "contents": "write",
+          "issues": "write",
+          "pull_requests": "write",
+          "actions": "read",
+          "metadata": "read",
+          "workflows": "write"
+        }
+      }
+    </script>
+    <script>
+
+      const form = document.getElementById("manifest-form");
+      const target = document.getElementById("target");
+      const org = document.getElementById("org");
+
+      function updateAction() {
+        if (target.value === "org") {
+          document.getElementById("org-field").style.display = "block";
+          org.required = true;
+          const slug = org.value.trim();
+          form.action = `https://github.com/organizations/${slug}/settings/apps/new`;
+        } else {
+          document.getElementById("org-field").style.display = "none";
+          org.required = false;
+          form.action = "https://github.com/settings/apps/new";
+        }
+      }
+
+      target.addEventListener("change", updateAction);
+      org.addEventListener("input", updateAction);
+      window.addEventListener("pageshow", updateAction);
+      updateAction();
+
+      const rawManifest = document.getElementById("manifest-json").textContent.trim();
+      const manifestText = JSON.stringify(JSON.parse(rawManifest), null, 2);
+      document.getElementById("manifest").value = manifestText;
+      document.getElementById("manifest-editor").value = manifestText;
+
+      const editor = document.getElementById("manifest-editor");
+      editor.addEventListener("input", () => {
+        document.getElementById("manifest").value = editor.value;
+      });
+
+      const codeInput = document.getElementById("code-input");
+      const conversionCommand = document.getElementById("conversion-command");
+      const urlCode = new URLSearchParams(window.location.search).get("code") || "";
+      if (urlCode) codeInput.value = urlCode;
+
+      function updateCommand() {
+        const code = codeInput.value.trim();
+        conversionCommand.textContent = code
+          ? `gh api --method POST /app-manifests/${code}/conversions`
+          : "Paste a code to generate the conversion command.";
+      }
+
+      codeInput.addEventListener("input", updateCommand);
+      updateCommand();
+    </script>
+  </body>
+</html>

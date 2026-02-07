@@ -4,6 +4,9 @@ import { getOctokit } from './octokit';
 
 export const ensureWriteAccess = async (): Promise<void> => {
   const { actor, repo: { owner, repo } } = context;
+
+  if (actor.endsWith('[bot]')) return;
+
   const permission = await fetchPermission();
 
   if (!(["admin", "write", "maintain"].includes(permission))) {
