@@ -20,8 +20,8 @@ jobs:
       issues: write # post comments, close duplicates
       actions: read # resume sessions via artifacts
     steps:
-      - name: Run workflow-agent
-        uses: sudden-network/workflow-agent@v1
+      - name: Run sudden-agent
+        uses: sudden-network/agent@v1
         with:
           agent_api_key: ${{ secrets.OPENAI_API_KEY }}
           resume: true

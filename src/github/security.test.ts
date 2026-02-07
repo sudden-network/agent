@@ -1,6 +1,6 @@
 const contextMock = {
   actor: 'octo',
-  repo: { owner: 'octo', repo: 'workflow-agent' }
+  repo: { owner: 'octo', repo: 'sudden-agent' }
 };
 
 jest.mock('@actions/github', () => ({ context: contextMock }));

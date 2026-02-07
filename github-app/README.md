@@ -41,7 +41,7 @@ Use org-level settings for reuse across repos, or repo-level settings for a sing
     app-id: ${{ vars.WORKFLOW_AGENT_GITHUB_APP_ID }}
     private-key: ${{ secrets.WORKFLOW_AGENT_GITHUB_APP_PRIVATE_KEY }}
 
-- uses: sudden-network/workflow-agent@v1
+- uses: sudden-network/agent@v1
   with:
     github_token: ${{ steps.app_token.outputs.token }}
     github_token_actor: ${{ steps.app_token.outputs.app-slug }}[bot]

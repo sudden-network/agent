@@ -14,7 +14,7 @@ export const normalizeName = (value: string) =>
   value.trim().replace(/["<>|:*?\r\n\\\/]+/g, '-');
 
 const getArtifactName = () => {
-  return `workflow-agent-${getSubjectType()}-${getIssueNumber()}-${normalizeName(context.workflow)}-${normalizeName(context.job)}`;
+  return `sudden-agent-${getSubjectType()}-${getIssueNumber()}-${normalizeName(context.workflow)}-${normalizeName(context.job)}`;
 };
 
 const listArtifactsByName = async (): Promise<RepoArtifact[]> => {

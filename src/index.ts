@@ -31,7 +31,7 @@ const main = async () => {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 
-    setFailed(`workflow-agent failed: ${message}`);
+    setFailed(`sudden-agent failed: ${message}`);
 
     if (isIssueOrPullRequest()) {
       await postErrorComment();

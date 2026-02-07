@@ -18,8 +18,8 @@ jobs:
     permissions:
       contents: write # create tags/releases
     steps:
-      - name: Tag via workflow-agent
-        uses: sudden-network/workflow-agent@v1
+      - name: Tag via sudden-agent
+        uses: sudden-network/agent@v1
         with:
           agent_api_key: ${{ secrets.OPENAI_API_KEY }}
           prompt: |

@@ -1,4 +1,4 @@
-# Workflow Agent
+# Sudden Agent
 
 Run programmable agents on any [GitHub Workflow](https://docs.github.com/en/actions/concepts/workflows-and-actions/workflows) (issues, pull requests, comments, schedule, dispatch, etc.) to enable automation across your repo.
 
@@ -14,7 +14,7 @@ You can attach an agent to any workflow and provide a custom prompt to unlock a 
 - [Todo to issues](recipes/todo-to-issue.md) - Create issues for new TODOs introduced on the default branch.
 - [Version bump](recipes/version-bump.md) - Suggest version bumps based on PR impact.
 
-Have a useful workflow? [Share your recipe](https://github.com/sudden-network/workflow-agent/new/main/recipes?filename=recipe.yml)
+Have a useful workflow? [Share your recipe](https://github.com/sudden-network/agent/new/main/recipes?filename=recipe.yml)
 
 ## Persistent sessions
 
