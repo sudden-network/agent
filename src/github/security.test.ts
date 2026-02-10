@@ -9,10 +9,16 @@ jest.mock('./permissions', () => ({
   fetchPermission: jest.fn(),
 }));
 
-import { ensureWriteAccess } from './security';
+jest.mock('./octokit', () => ({
+  getOctokit: jest.fn(),
+}));
+
+import { ensureWriteAccess, fetchTrustedCollaborators } from './security';
 import { fetchPermission } from './permissions';
+import { getOctokit } from './octokit';
 
 const fetchPermissionMock = jest.mocked(fetchPermission);
+const getOctokitMock = jest.mocked(getOctokit);
 
 describe('ensureWriteAccess', () => {
   afterEach(() => {
@@ -37,5 +43,35 @@ describe('ensureWriteAccess', () => {
     fetchPermissionMock.mockResolvedValue('read');
 
     await expect(ensureWriteAccess()).rejects.toThrow('must have write access');
+  });
+});
+
+describe('fetchTrustedCollaborators', () => {
+  afterEach(() => {
+    getOctokitMock.mockReset();
+  });
+
+  it('returns collaborators with role names', async () => {
+    const listCollaboratorsMock = jest.fn();
+    const paginateMock = jest.fn().mockResolvedValue([
+      { login: 'octo', role_name: 'admin' },
+      { login: 'hubot', role_name: 'read' },
+    ]);
+
+    getOctokitMock.mockReturnValue({
+      rest: { repos: { listCollaborators: listCollaboratorsMock } },
+      paginate: paginateMock,
+    } as unknown as ReturnType<typeof getOctokit>);
+
+    const result = await fetchTrustedCollaborators();
+
+    expect(paginateMock).toHaveBeenCalledWith(
+      listCollaboratorsMock,
+      { owner: 'octo', repo: 'sudden-agent', per_page: 100 },
+    );
+    expect(result).toEqual([
+      { login: 'octo', roleName: 'admin' },
+      { login: 'hubot', roleName: 'read' },
+    ]);
   });
 });
