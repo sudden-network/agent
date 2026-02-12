@@ -1,11 +1,6 @@
 const contextMock = {
   actor: 'octo',
-  repo: { owner: 'octo', repo: 'sudden-agent' },
-  payload: {
-    repository: {
-      private: false,
-    },
-  },
+  repo: { owner: 'octo', repo: 'sudden-agent' }
 };
 
 jest.mock('@actions/github', () => ({ context: contextMock }));
@@ -29,18 +24,10 @@ describe('ensureWriteAccess', () => {
   afterEach(() => {
     fetchPermissionMock.mockReset();
     contextMock.actor = 'octo';
-    contextMock.payload.repository.private = false;
   });
 
   it('skips permission checks for bot actors', async () => {
     contextMock.actor = 'sudden-agent[bot]';
-
-    await expect(ensureWriteAccess()).resolves.toBeUndefined();
-    expect(fetchPermissionMock).not.toHaveBeenCalled();
-  });
-
-  it('skips permission checks for private repos', async () => {
-    contextMock.payload.repository.private = true;
 
     await expect(ensureWriteAccess()).resolves.toBeUndefined();
     expect(fetchPermissionMock).not.toHaveBeenCalled();
@@ -80,7 +67,7 @@ describe('fetchTrustedCollaborators', () => {
 
     expect(paginateMock).toHaveBeenCalledWith(
       listCollaboratorsMock,
-      { owner: 'octo', repo: 'sudden-agent', per_page: 100 },
+      { owner: 'octo', repo: 'sudden-agent', permission: 'push', per_page: 100 },
     );
     expect(result).toEqual([
       { login: 'octo', roleName: 'admin' },

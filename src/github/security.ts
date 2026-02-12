@@ -1,7 +1,6 @@
 import { context } from '@actions/github';
 import { fetchPermission } from './permissions';
 import { getOctokit } from './octokit';
-import { isPrivateRepo } from './context';
 
 export type TrustedCollaborator = {
   login: string;
@@ -11,7 +10,6 @@ export type TrustedCollaborator = {
 export const ensureWriteAccess = async (): Promise<void> => {
   const { actor, repo: { owner, repo } } = context;
 
-  if (isPrivateRepo()) return;
   if (actor.endsWith('[bot]')) return;
 
   const permission = await fetchPermission();
@@ -31,6 +29,7 @@ export const fetchTrustedCollaborators = async (): Promise<TrustedCollaborator[]
       {
         owner,
         repo,
+        permission: "push",
         per_page: 100,
       },
     );
