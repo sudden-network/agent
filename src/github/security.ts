@@ -2,11 +2,6 @@ import { context } from '@actions/github';
 import { fetchPermission } from './permissions';
 import { getOctokit } from './octokit';
 
-export type TrustedCollaborator = {
-  login: string;
-  roleName: string;
-};
-
 export const ensureWriteAccess = async (): Promise<void> => {
   const { actor, repo: { owner, repo } } = context;
 
@@ -19,7 +14,7 @@ export const ensureWriteAccess = async (): Promise<void> => {
   }
 };
 
-export const fetchTrustedCollaborators = async (): Promise<TrustedCollaborator[]> => {
+export const fetchTrustedCollaborators = async (): Promise<string[]> => {
   const { repo: { owner, repo } } = context;
   const octokit = getOctokit();
 
@@ -34,10 +29,7 @@ export const fetchTrustedCollaborators = async (): Promise<TrustedCollaborator[]
       },
     );
 
-    return collaborators.map((collaborator) => ({
-      login: collaborator.login,
-      roleName: collaborator.role_name,
-    }));
+    return collaborators.map((collaborator) => collaborator.login);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`Failed to list trusted collaborators for ${owner}/${repo}: ${message}`);

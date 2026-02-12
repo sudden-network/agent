@@ -69,9 +69,6 @@ describe('fetchTrustedCollaborators', () => {
       listCollaboratorsMock,
       { owner: 'octo', repo: 'sudden-agent', permission: 'push', per_page: 100 },
     );
-    expect(result).toEqual([
-      { login: 'octo', roleName: 'admin' },
-      { login: 'hubot', roleName: 'read' },
-    ]);
+    expect(result).toEqual(['octo', 'hubot']);
   });
 });
