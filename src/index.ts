@@ -1,11 +1,11 @@
-import { setFailed } from '@actions/core';
+import { info, setFailed } from '@actions/core';
 import { getAgent } from './agents';
 import { postErrorComment } from './github/comment';
 import { isIssueOrPullRequest } from './github/context';
 import { githubMcpServer } from './github/mcp';
 import { buildPrompt } from './prompt';
 import { resolveTokenActor } from './github/identity';
-import { fetchTrustedCollaborators, ensureWriteAccess } from './github/security';
+import { fetchTrustedCollaborators, ensureWriteAccess, isTrustedCommentAuthor } from './github/security';
 
 const main = async () => {
   try {
@@ -15,6 +15,10 @@ const main = async () => {
       getAgent(),
       ensureWriteAccess(),
     ]);
+
+    if (!isTrustedCommentAuthor(trustedCollaborators)) {
+      return info('Skipping run: comment author is not trusted.');
+    }
 
     try {
       const { resumed } = await agent.bootstrap({

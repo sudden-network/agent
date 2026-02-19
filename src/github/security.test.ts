@@ -1,6 +1,8 @@
 const contextMock = {
   actor: 'octo',
-  repo: { owner: 'octo', repo: 'sudden-agent' }
+  repo: { owner: 'octo', repo: 'sudden-agent' },
+  eventName: 'pull_request',
+  payload: {},
 };
 
 jest.mock('@actions/github', () => ({ context: contextMock }));
@@ -13,7 +15,7 @@ jest.mock('./octokit', () => ({
   getOctokit: jest.fn(),
 }));
 
-import { ensureWriteAccess, fetchTrustedCollaborators } from './security';
+import { ensureWriteAccess, fetchTrustedCollaborators, isTrustedCommentAuthor } from './security';
 import { fetchPermission } from './permissions';
 import { getOctokit } from './octokit';
 
@@ -70,5 +72,40 @@ describe('fetchTrustedCollaborators', () => {
       { owner: 'octo', repo: 'sudden-agent', permission: 'push', per_page: 100 },
     );
     expect(result).toEqual(['octo', 'hubot']);
+  });
+});
+
+describe('isTrustedCommentAuthor', () => {
+  afterEach(() => {
+    contextMock.eventName = 'pull_request';
+    contextMock.payload = {};
+  });
+
+  it('allows non-comment events', () => {
+    contextMock.eventName = 'pull_request';
+    contextMock.payload = {};
+
+    expect(isTrustedCommentAuthor(['octo'])).toBe(true);
+  });
+
+  it('allows trusted comment authors', () => {
+    contextMock.eventName = 'issue_comment';
+    contextMock.payload = { comment: { user: { login: 'octo' } } };
+
+    expect(isTrustedCommentAuthor(['octo', 'hubot'])).toBe(true);
+  });
+
+  it('rejects untrusted comment authors', () => {
+    contextMock.eventName = 'pull_request_review_comment';
+    contextMock.payload = { comment: { user: { login: 'hubot' } } };
+
+    expect(isTrustedCommentAuthor(['octo'])).toBe(false);
+  });
+
+  it('rejects missing comment author', () => {
+    contextMock.eventName = 'issue_comment';
+    contextMock.payload = { comment: {} };
+
+    expect(() => isTrustedCommentAuthor(['octo'])).toThrow('Missing comment author login.');
   });
 });

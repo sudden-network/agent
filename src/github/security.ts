@@ -2,6 +2,18 @@ import { context } from '@actions/github';
 import { fetchPermission } from './permissions';
 import { getOctokit } from './octokit';
 
+export const isTrustedCommentAuthor = (trustedCollaborators: string[]): boolean => {
+  if (!(['issue_comment', 'pull_request_review_comment'].includes(context.eventName))) return true;
+
+  const author = context.payload.comment?.user?.login;
+
+  if (!author) {
+    throw new Error('Missing comment author login.');
+  }
+
+  return trustedCollaborators.includes(author);
+};
+
 export const ensureWriteAccess = async (): Promise<void> => {
   const { actor, repo: { owner, repo } } = context;
 
