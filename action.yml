@@ -43,7 +43,7 @@ inputs:
     description: Enable session resume across runs
     required: false
   sudo:
-    description: Disable sandbox and MCP; allow write + network access for the agent
+    description: Disable sandbox; allow write + network access for the agent
     required: false
     default: "false"
 

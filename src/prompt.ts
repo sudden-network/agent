@@ -24,17 +24,12 @@ export const buildPrompt = ({
 
   const githubAccessInstructions = inputs.sudo
     ? [
-        '- Sudo mode is enabled.',
         '- GitHub CLI is available; use `gh` for all GitHub operations.',
-        '- The MCP server is disabled; do not use `github.octokit_request`.',
-        '- You have write access to the local checkout and network access.',
-        '- Run shell commands directly without asking for approval.',
       ].join('\n')
     : [
-        '- GitHub access is available via the MCP server named `github`.',
         '- The GitHub CLI is not usable here.',
         '- Use `github.octokit_request` for all GitHub operations (comments, reactions, file updates, PRs, inline replies, etc).',
-        '- You cannot write to the local checkout; to update repo files (commits/branches/PRs), use GitHub MCP via `github.octokit_request`.',
+        '- You cannot write to the local checkout; to update repo files (commits/branches/PRs), use `github.octokit_request`.',
         '- To update a PR branch that is behind its base, use the `update-branch` API via `github.octokit_request`.',
       ].join('\n');
 

@@ -83,9 +83,6 @@ describe('buildPrompt', () => {
       tokenActor: WORKFLOW_TOKEN_ACTOR,
     });
 
-    expect(result).toContain('Sudo mode is enabled.');
     expect(result).toContain('GitHub CLI is available');
-    expect(result).toContain('MCP server is disabled');
-    expect(result).toContain('write access to the local checkout');
   });
 });
