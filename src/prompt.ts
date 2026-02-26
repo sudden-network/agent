@@ -22,9 +22,9 @@ export const buildPrompt = ({
       .trim();
   }
 
-  const githubAccessInstructions = inputs.pseudo
+  const githubAccessInstructions = inputs.sudo
     ? [
-        '- Pseudo mode is enabled.',
+        '- Sudo mode is enabled.',
         '- GitHub CLI is available; use `gh` for all GitHub operations.',
         '- The MCP server is disabled; do not use `github.octokit_request`.',
         '- You have write access to the local checkout and network access.',

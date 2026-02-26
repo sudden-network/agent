@@ -2,10 +2,10 @@ import { WORKFLOW_TOKEN_ACTOR } from './github/identity';
 
 const loadPrompt = async ({
   prompt,
-  pseudo,
+  sudo,
 }: {
   prompt?: string;
-  pseudo?: boolean;
+  sudo?: boolean;
 } = {}) => {
   jest.resetModules();
   process.env.GITHUB_EVENT_PATH = '/tmp/event.json';
@@ -16,10 +16,10 @@ const loadPrompt = async ({
     delete process.env.INPUT_PROMPT;
   }
 
-  if (pseudo !== undefined) {
-    process.env.INPUT_PSEUDO = pseudo ? 'true' : 'false';
+  if (sudo !== undefined) {
+    process.env.INPUT_SUDO = sudo ? 'true' : 'false';
   } else {
-    delete process.env.INPUT_PSEUDO;
+    delete process.env.INPUT_SUDO;
   }
 
   const { buildPrompt } = await import('./prompt');
@@ -31,7 +31,7 @@ describe('buildPrompt', () => {
   afterEach(() => {
     delete process.env.GITHUB_EVENT_PATH;
     delete process.env.INPUT_PROMPT;
-    delete process.env.INPUT_PSEUDO;
+    delete process.env.INPUT_SUDO;
   });
 
   it('uses the resume prompt when resumed', async () => {
@@ -75,15 +75,15 @@ describe('buildPrompt', () => {
     expect(result).toContain('sudden-agent[bot]');
   });
 
-  it('uses pseudo mode instructions when enabled', async () => {
-    const buildPrompt = await loadPrompt({ pseudo: true });
+  it('uses sudo mode instructions when enabled', async () => {
+    const buildPrompt = await loadPrompt({ sudo: true });
     const result = buildPrompt({
       resumed: false,
       trustedCollaborators: ['octocat'],
       tokenActor: WORKFLOW_TOKEN_ACTOR,
     });
 
-    expect(result).toContain('Pseudo mode is enabled.');
+    expect(result).toContain('Sudo mode is enabled.');
     expect(result).toContain('GitHub CLI is available');
     expect(result).toContain('MCP server is disabled');
     expect(result).toContain('write access to the local checkout');

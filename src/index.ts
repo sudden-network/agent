@@ -21,7 +21,7 @@ const main = async () => {
       return info('Skipping run: comment author is not trusted.');
     }
 
-    const mcpServer = inputs.pseudo ? null : await githubMcpServer.start();
+    const mcpServer = inputs.sudo ? null : await githubMcpServer.start();
 
     try {
       const { resumed } = await agent.bootstrap({

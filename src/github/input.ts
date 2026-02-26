@@ -34,7 +34,7 @@ export const inputs = {
   get resume(): boolean {
     return getInput('resume').toLowerCase() === 'true';
   },
-  get pseudo(): boolean {
-    return getInput('pseudo').toLowerCase() === 'true';
+  get sudo(): boolean {
+    return getInput('sudo').toLowerCase() === 'true';
   },
 };
