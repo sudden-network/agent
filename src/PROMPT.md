@@ -5,11 +5,7 @@
 
 ## GitHub Access
 
-- GitHub access is available via the MCP server named `github`. 
-- The GitHub CLI is not usable here.
-- Use `github.octokit_request` for all GitHub operations (comments, reactions, file updates, PRs, inline replies, etc).
-- You cannot write to the local checkout; to update repo files (commits/branches/PRs), use GitHub MCP via `github.octokit_request`.
-- To update a PR branch that is behind its base, use the `update-branch` API via `github.octokit_request`.
+{{github_access_instructions}}
 
 ## Trusted Collaborators
 

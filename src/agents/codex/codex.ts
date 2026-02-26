@@ -116,12 +116,13 @@ export const teardown = async () => {
 
 export const run = async (prompt: string) => {
   const { model, reasoningEffort } = parseModelInput(inputs.model);
+  const sandbox = inputs.pseudo ? 'danger-full-access' : 'read-only';
 
   await runCommand(
     'codex',
     [
       'exec',
-      '--sandbox=read-only',
+      `--sandbox=${sandbox}`,
       ...(model ? [`--model=${model}`] : []),
       ...(reasoningEffort ? [`--config=model_reasoning_effort=${reasoningEffort}`] : []),
       '-',

@@ -6,6 +6,7 @@ import { githubMcpServer } from './github/mcp';
 import { buildPrompt } from './prompt';
 import { resolveTokenActor } from './github/identity';
 import { fetchTrustedCollaborators, ensureWriteAccess, isTrustedCommentAuthor } from './github/security';
+import { inputs } from './github/input';
 
 const main = async () => {
   try {
@@ -20,17 +21,22 @@ const main = async () => {
       return info('Skipping run: comment author is not trusted.');
     }
 
+    const mcpServer = inputs.pseudo ? null : await githubMcpServer.start();
+
     try {
       const { resumed } = await agent.bootstrap({
-        mcpServers: [await githubMcpServer.start()]
+        mcpServers: mcpServer ? [mcpServer] : [],
       });
 
       await agent.run(buildPrompt({ resumed, trustedCollaborators, tokenActor }));
     } finally {
-      await Promise.allSettled([
-        githubMcpServer.stop(),
-        agent.teardown()
-      ]);
+      const teardownTasks = [agent.teardown()];
+
+      if (mcpServer) {
+        teardownTasks.push(githubMcpServer.stop());
+      }
+
+      await Promise.allSettled(teardownTasks);
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
