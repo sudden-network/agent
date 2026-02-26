@@ -6,9 +6,13 @@ import { githubMcpServer } from './github/mcp';
 import { buildPrompt } from './prompt';
 import { resolveTokenActor } from './github/identity';
 import { fetchTrustedCollaborators, ensureWriteAccess, isTrustedCommentAuthor } from './github/security';
+import { inputs } from './github/input';
+import type { McpServerConfig } from './mcp';
 
 const main = async () => {
   try {
+    const mcpServers: McpServerConfig[] = [];
+
     const [trustedCollaborators, tokenActor, agent] = await Promise.all([
       fetchTrustedCollaborators(),
       resolveTokenActor(),
@@ -21,15 +25,19 @@ const main = async () => {
     }
 
     try {
+      if (!inputs.sudo) {
+        mcpServers.push(await githubMcpServer.start());
+      }
+
       const { resumed } = await agent.bootstrap({
-        mcpServers: [await githubMcpServer.start()]
+        mcpServers,
       });
 
       await agent.run(buildPrompt({ resumed, trustedCollaborators, tokenActor }));
     } finally {
       await Promise.allSettled([
         githubMcpServer.stop(),
-        agent.teardown()
+        agent.teardown(),
       ]);
     }
   } catch (error) {

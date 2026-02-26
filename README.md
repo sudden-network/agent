@@ -34,6 +34,7 @@ This makes iterative work practical: the agent remembers what it already covered
 | `model` | no | Agent model override (for Codex, append reasoning effort with /, e.g. `gpt-5.3-codex/xhigh`) |
 | `prompt` | no | Additional instructions for the agent. |
 | `resume` | no | Enable session persistence. Default: `false`. |
+| `sudo` | no | Disable sandbox; allow write + network access. Default: `false`. |
 
 - Session persistence requires the `actions: read` permission to download artifacts.
 - Artifact retention is controlled by your repo/org settings (see [Workflow Artifacts](https://docs.github.com/en/actions/concepts/workflows-and-actions/workflow-artifacts)).

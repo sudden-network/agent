@@ -1,6 +1,12 @@
-import {WORKFLOW_TOKEN_ACTOR} from "./github/identity";
+import { WORKFLOW_TOKEN_ACTOR } from './github/identity';
 
-const loadPrompt = async (prompt?: string) => {
+const loadPrompt = async ({
+  prompt,
+  sudo,
+}: {
+  prompt?: string;
+  sudo?: boolean;
+} = {}) => {
   jest.resetModules();
   process.env.GITHUB_EVENT_PATH = '/tmp/event.json';
 
@@ -8,6 +14,12 @@ const loadPrompt = async (prompt?: string) => {
     process.env.INPUT_PROMPT = prompt;
   } else {
     delete process.env.INPUT_PROMPT;
+  }
+
+  if (sudo !== undefined) {
+    process.env.INPUT_SUDO = sudo ? 'true' : 'false';
+  } else {
+    delete process.env.INPUT_SUDO;
   }
 
   const { buildPrompt } = await import('./prompt');
@@ -19,6 +31,7 @@ describe('buildPrompt', () => {
   afterEach(() => {
     delete process.env.GITHUB_EVENT_PATH;
     delete process.env.INPUT_PROMPT;
+    delete process.env.INPUT_SUDO;
   });
 
   it('uses the resume prompt when resumed', async () => {
@@ -36,7 +49,7 @@ describe('buildPrompt', () => {
   });
 
   it('uses the full prompt when not resumed', async () => {
-    const buildPrompt = await loadPrompt('Extra instructions');
+    const buildPrompt = await loadPrompt({ prompt: 'Extra instructions' });
     const result = buildPrompt({
       resumed: false,
       trustedCollaborators: ['octocat', 'hubot'],
@@ -52,7 +65,7 @@ describe('buildPrompt', () => {
   });
 
   it('supports token context overrides', async () => {
-    const buildPrompt = await loadPrompt('Extra instructions');
+    const buildPrompt = await loadPrompt({ prompt: 'Extra instructions' });
     const result = buildPrompt({
       resumed: false,
       trustedCollaborators: ['octocat', 'hubot'],
@@ -60,5 +73,16 @@ describe('buildPrompt', () => {
     });
 
     expect(result).toContain('sudden-agent[bot]');
+  });
+
+  it('uses sudo mode instructions when enabled', async () => {
+    const buildPrompt = await loadPrompt({ sudo: true });
+    const result = buildPrompt({
+      resumed: false,
+      trustedCollaborators: ['octocat'],
+      tokenActor: WORKFLOW_TOKEN_ACTOR,
+    });
+
+    expect(result).toContain('GitHub CLI is available');
   });
 });
