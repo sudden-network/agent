@@ -1,7 +1,7 @@
 {
   "name": "sudden-agent",
   "private": true,
-  "version": "1.10.1",
+  "version": "1.10.2",
   "main": "dist/index.js",
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
