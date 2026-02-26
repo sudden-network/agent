@@ -35,6 +35,7 @@ jobs:
         uses: sudden-network/agent@v1
         with:
           agent_auth_file: ${{ secrets.CODEX_AUTH_JSON }}
+          model: gpt-5.3-codex/xhigh
           resume: true
           prompt: |
             Goals:

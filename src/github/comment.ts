@@ -2,13 +2,14 @@ import { warning } from '@actions/core';
 import { context } from '@actions/github';
 import { getIssueNumber } from './context';
 import { isPermissionError } from './error';
+import { inputs } from './input';
 import { getOctokit } from './octokit';
 
 export const postComment = async (comment: string) => {
   const { owner, repo } = context.repo;
 
   try {
-    await getOctokit().rest.issues.createComment({
+    await getOctokit(inputs.workflowGithubToken).rest.issues.createComment({
       owner,
       repo,
       issue_number: getIssueNumber(),
