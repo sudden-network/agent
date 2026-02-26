@@ -2,4 +2,4 @@
 . "$(dirname -- "$0")/_/h"
 
 npm run build
-git add dist/index.js dist/PROMPT.md dist/PROMPT_RESUME.md
+git add dist
