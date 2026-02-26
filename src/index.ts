@@ -24,11 +24,11 @@ const main = async () => {
       return info('Skipping run: comment author is not trusted.');
     }
 
-    if (!inputs.sudo) {
-      mcpServers.push(await githubMcpServer.start());
-    }
-
     try {
+      if (!inputs.sudo) {
+        mcpServers.push(await githubMcpServer.start());
+      }
+
       const { resumed } = await agent.bootstrap({
         mcpServers,
       });
