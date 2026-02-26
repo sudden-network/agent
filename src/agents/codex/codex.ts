@@ -4,6 +4,7 @@ import path from 'path';
 import { context } from '@actions/github';
 import { downloadLatestArtifact, uploadArtifact } from '../../github/artifacts';
 import { runCommand } from '../../exec';
+import type { ExecOptions } from '@actions/exec';
 import { inputs } from '../../github/input';
 import { isPermissionError } from '../../github/error';
 import { info } from '@actions/core';
@@ -117,6 +118,11 @@ export const teardown = async () => {
 export const run = async (prompt: string) => {
   const { model, reasoningEffort } = parseModelInput(inputs.model);
   const sandbox = inputs.sudo ? 'danger-full-access' : 'read-only';
+  const execOptions: ExecOptions = { input: Buffer.from(prompt, 'utf8') };
+
+  if (inputs.sudo) {
+    execOptions.env = { ...process.env, GITHUB_TOKEN: inputs.githubToken };
+  }
 
   await runCommand(
     'codex',
@@ -130,7 +136,7 @@ export const run = async (prompt: string) => {
       '--last',
       '--skip-git-repo-check',
     ],
-    { input: Buffer.from(prompt, 'utf8') },
+    execOptions,
     'stderr',
   );
 };
