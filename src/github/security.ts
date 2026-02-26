@@ -31,7 +31,7 @@ export const fetchTrustedCollaborators = async (): Promise<string[]> => {
   const octokit = getOctokit();
 
   try {
-    const collaborators = await octokit.paginate(
+    const collaborators: Array<{ login: string }> = await octokit.paginate(
       octokit.rest.repos.listCollaborators,
       {
         owner,

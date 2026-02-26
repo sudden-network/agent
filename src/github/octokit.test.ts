@@ -36,6 +36,10 @@ describe('getOctokit', () => {
   });
 
   it('throws when supplied token is undefined', () => {
+    expect(() => getOctokit(undefined)).toThrow('Missing GitHub token.');
+  });
+
+  it('throws when default token is missing', () => {
     githubTokenMock = undefined;
 
     expect(() => getOctokit()).toThrow('Missing GitHub token.');
