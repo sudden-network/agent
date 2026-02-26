@@ -11,6 +11,8 @@ import type { McpServerConfig } from './mcp';
 
 const main = async () => {
   try {
+    const mcpServers: McpServerConfig[] = [];
+
     const [trustedCollaborators, tokenActor, agent] = await Promise.all([
       fetchTrustedCollaborators(),
       resolveTokenActor(),
@@ -21,8 +23,6 @@ const main = async () => {
     if (!isTrustedCommentAuthor(trustedCollaborators)) {
       return info('Skipping run: comment author is not trusted.');
     }
-
-    const mcpServers: McpServerConfig[] = [];
 
     if (!inputs.sudo) {
       mcpServers.push(await githubMcpServer.start());
