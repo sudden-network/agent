@@ -13,9 +13,7 @@ MENU_ANSI="false"
 MENU_COLUMNS=80
 MENU_KEY=""
 MENU_ROWS=24
-MENU_SELECTED=()
 SELECTED=""
-SELECTED_VALUES=()
 TARGET_LABEL=""
 REPLACES_EXISTING="false"
 SECRET_ARGS=()
@@ -98,45 +96,29 @@ print_menu_line() {
 }
 
 render_menu() {
-  local mode="$1"
-  local cursor="$2"
-  local window_start="$3"
-  local window_size="$4"
-  local selected_count="$5"
-  shift 5
+  local cursor="$1"
+  local window_start="$2"
+  local window_size="$3"
+  shift 3
   local options=("$@")
   local index
   local marker
-  local checkbox
-  local line
 
   for ((index = window_start; index < window_start + window_size; index++)); do
     marker=" "
     [[ "$index" -ne "$cursor" ]] || marker=">"
-    if [[ "$mode" == "multiple" ]]; then
-      checkbox=" "
-      [[ "${MENU_SELECTED[$index]}" != "true" ]] || checkbox="x"
-      line="$marker [$checkbox] ${options[$index]}"
-    else
-      line="$marker ${options[$index]}"
-    fi
-    print_menu_line "$line"
+    print_menu_line "$marker ${options[$index]}"
   done
-
-  if [[ "$mode" == "multiple" ]]; then
-    line="  Selected: $selected_count | $((cursor + 1))/${#options[@]}"
-  else
-    line="  $((cursor + 1))/${#options[@]}"
-  fi
-  print_menu_line "$line"
+  print_menu_line "  $((cursor + 1))/${#options[@]}"
 }
 
 redraw_menu() {
   local line_count="$1"
   shift
 
-  [[ "$MENU_ANSI" == "true" ]] || return 0
-  printf '\033[%dA' "$line_count" >&2
+  if [[ "$MENU_ANSI" == "true" ]]; then
+    printf '\033[%dA' "$line_count" >&2
+  fi
   render_menu "$@"
 }
 
@@ -168,7 +150,7 @@ choose() {
   echo >&2
   echo "$prompt" >&2
   echo "Use Up/Down arrows to move, Enter to choose, or q to cancel." >&2
-  render_menu "single" "$cursor" "$window_start" "$window_size" 0 "${options[@]}"
+  render_menu "$cursor" "$window_start" "$window_size" "${options[@]}"
 
   while true; do
     read_menu_key || die "Input closed."
@@ -199,97 +181,7 @@ choose() {
     elif [[ "$cursor" -ge $((window_start + window_size)) ]]; then
       window_start=$((cursor - window_size + 1))
     fi
-    redraw_menu "$line_count" "single" "$cursor" "$window_start" "$window_size" 0 "${options[@]}"
-  done
-}
-
-choose_multiple() {
-  local prompt="$1"
-  shift
-  local options=("$@")
-  local cursor=0
-  local window_start=0
-  local window_size="${#options[@]}"
-  local maximum_window_size
-  local selected_count=0
-  local line_count
-  local i
-
-  [[ "${#options[@]}" -gt 0 ]] || die "No choices are available."
-  configure_menu_terminal
-  maximum_window_size="${#options[@]}"
-  if [[ "$MENU_ANSI" == "true" ]]; then
-    maximum_window_size="$MENU_WINDOW_SIZE"
-    if [[ "$MENU_ROWS" -le $((MENU_WINDOW_SIZE + 5)) ]]; then
-      maximum_window_size=$((MENU_ROWS - 5))
-      [[ "$maximum_window_size" -gt 0 ]] || maximum_window_size=1
-    fi
-  fi
-  if [[ "$window_size" -gt "$maximum_window_size" ]]; then
-    window_size="$maximum_window_size"
-  fi
-  line_count=$((window_size + 1))
-  MENU_SELECTED=()
-  for ((i = 0; i < ${#options[@]}; i++)); do
-    MENU_SELECTED+=("false")
-  done
-
-  echo >&2
-  echo "$prompt" >&2
-  echo "Use Up/Down arrows to move, Enter to choose one, Space to select multiple, or q to cancel." >&2
-  render_menu "multiple" "$cursor" "$window_start" "$window_size" "$selected_count" "${options[@]}"
-
-  while true; do
-    read_menu_key || die "Input closed."
-    case "$MENU_KEY" in
-      $'\033[A'|$'\033OA')
-        if [[ "$cursor" -eq 0 ]]; then
-          cursor=$((${#options[@]} - 1))
-        else
-          cursor=$((cursor - 1))
-        fi
-        ;;
-      $'\033[B'|$'\033OB')
-        cursor=$(((cursor + 1) % ${#options[@]}))
-        ;;
-      " ")
-        if [[ "${MENU_SELECTED[$cursor]}" == "true" ]]; then
-          MENU_SELECTED[$cursor]="false"
-          selected_count=$((selected_count - 1))
-        else
-          MENU_SELECTED[$cursor]="true"
-          selected_count=$((selected_count + 1))
-        fi
-        ;;
-      ""|$'\r')
-        if [[ "$selected_count" -eq 0 ]]; then
-          MENU_SELECTED[$cursor]="true"
-          selected_count=1
-          redraw_menu "$line_count" "multiple" "$cursor" "$window_start" "$window_size" \
-            "$selected_count" "${options[@]}"
-        fi
-        SELECTED_VALUES=()
-        for ((i = 0; i < ${#options[@]}; i++)); do
-          if [[ "${MENU_SELECTED[$i]}" == "true" ]]; then
-            SELECTED_VALUES+=("${options[$i]}")
-          fi
-        done
-        return
-        ;;
-      q|Q)
-        echo "Cancelled." >&2
-        exit 0
-        ;;
-      *) continue ;;
-    esac
-
-    if [[ "$cursor" -lt "$window_start" ]]; then
-      window_start="$cursor"
-    elif [[ "$cursor" -ge $((window_start + window_size)) ]]; then
-      window_start=$((cursor - window_size + 1))
-    fi
-    redraw_menu "$line_count" "multiple" "$cursor" "$window_start" "$window_size" \
-      "$selected_count" "${options[@]}"
+    redraw_menu "$line_count" "$cursor" "$window_start" "$window_size" "${options[@]}"
   done
 }
 
@@ -311,7 +203,7 @@ print_local_mac_command() {
   echo >&2
   echo "Run this command on your local Mac:" >&2
   echo >&2
-  printf "bash -o pipefail -c 'curl -fsSL %s | bash && pbpaste | gh secret set %s --app actions \"\$@\" && pbcopy </dev/null' _" \
+  printf 'bash -euo pipefail -c '\''umask 077; auth_dir=$(mktemp -d); cleanup() { rm -rf -- "$auth_dir"; }; trap cleanup EXIT; curl -fsSL %s -o "$auth_dir/bootstrap.sh"; bash "$auth_dir/bootstrap.sh" --output "$auth_dir/auth.json"; test -s "$auth_dir/auth.json"; gh secret set %s --app actions "$@" < "$auth_dir/auth.json"'\'' _' \
     "$BOOTSTRAP_URL" "$SECRET_NAME" >&2
   for argument in "${SECRET_ARGS[@]}"; do
     printf -v quoted_argument '%q' "$argument"
@@ -323,7 +215,7 @@ print_local_mac_command() {
   if [[ "${SECRET_ARGS[0]}" == "--org" ]]; then
     echo "For a GitHub CLI OAuth login, add the admin:org scope." >&2
   fi
-  echo "The command creates a fresh login, uploads it to the selected secret, and clears the clipboard after success." >&2
+  echo "The command creates a fresh login, uploads a nonempty auth file, and deletes the temporary files on exit." >&2
 }
 
 select_repository_target() {
@@ -346,7 +238,7 @@ select_repository_target() {
   choose "Choose the repository owner ($viewer is your personal account)." "${owners[@]}"
 
   if ! repositories_output="$(gh repo list "$SELECTED" --limit 1000 --no-archived \
-    --json nameWithOwner,viewerPermission \
+    --visibility private --json nameWithOwner,viewerPermission \
     --jq 'map(select(.viewerPermission == "ADMIN")) | sort_by(.nameWithOwner)[] | .nameWithOwner')"; then
     die "Could not list repositories for $SELECTED. Reauthenticate with gh, then rerun."
   fi
@@ -355,8 +247,8 @@ select_repository_target() {
     [[ -n "$repository" ]] && repositories+=("$repository")
   done <<< "$repositories_output"
 
-  [[ "${#repositories[@]}" -gt 0 ]] || die "No repositories with admin access found for $SELECTED."
-  choose "Choose a repository where you have admin access." "${repositories[@]}"
+  [[ "${#repositories[@]}" -gt 0 ]] || die "No private repositories with admin access found for $SELECTED."
+  choose "Choose a private repository where you have admin access." "${repositories[@]}"
   repository="$SELECTED"
 
   if secret_exists --repo "$repository"; then
@@ -372,9 +264,6 @@ select_organization_target() {
   local repositories_output
   local organization
   local repository
-  local visibility
-  local selected_repositories=""
-  local selected_labels=""
   local organizations=()
   local repositories=()
 
@@ -406,49 +295,25 @@ select_organization_target() {
     echo "Current ${SECRET_NAME} visibility: $existing_visibility." >&2
   fi
 
-  choose "Choose the organization secret visibility." \
-    "Selected repositories (recommended)" \
-    "Private repositories" \
-    "All repositories"
-
-  case "$SELECTED" in
-    "Selected repositories (recommended)") visibility="selected" ;;
-    "Private repositories") visibility="private" ;;
-    "All repositories") visibility="all" ;;
-  esac
-
-  if [[ "$visibility" == "selected" ]]; then
-    if ! repositories_output="$(gh repo list "$organization" --limit 1000 --no-archived \
-      --json nameWithOwner,viewerPermission \
-      --jq 'map(select(.viewerPermission == "ADMIN")) | sort_by(.nameWithOwner)[] | .nameWithOwner')"; then
-      die "Could not list repositories for $organization. Reauthenticate with gh, then rerun."
-    fi
-
-    while IFS= read -r repository; do
-      [[ -n "$repository" ]] && repositories+=("$repository")
-    done <<< "$repositories_output"
-
-    [[ "${#repositories[@]}" -gt 0 ]] || die "No repositories with admin access found for $organization."
-    choose_multiple "Choose repositories that can use this organization secret." "${repositories[@]}"
-
-    for repository in "${SELECTED_VALUES[@]}"; do
-      if secret_exists --repo "$repository"; then
-        die "$repository already has ${SECRET_NAME}. Remove that repository secret before using the organization secret there."
-      fi
-      if [[ -n "$selected_repositories" ]]; then
-        selected_repositories="${selected_repositories},"
-        selected_labels="${selected_labels}, "
-      fi
-      selected_repositories="${selected_repositories}${repository#*/}"
-      selected_labels="${selected_labels}${repository}"
-    done
-
-    TARGET_LABEL="organization $organization (selected repositories: $selected_labels)"
-    SECRET_ARGS=(--org "$organization" --visibility selected --repos "$selected_repositories")
-  else
-    TARGET_LABEL="organization $organization ($visibility repositories)"
-    SECRET_ARGS=(--org "$organization" --visibility "$visibility")
+  if ! repositories_output="$(gh repo list "$organization" --limit 1000 --no-archived \
+    --visibility private --json nameWithOwner,viewerPermission \
+    --jq 'map(select(.viewerPermission == "ADMIN")) | sort_by(.nameWithOwner)[] | .nameWithOwner')"; then
+    die "Could not list repositories for $organization. Reauthenticate with gh, then rerun."
   fi
+
+  while IFS= read -r repository; do
+    [[ -n "$repository" ]] && repositories+=("$repository")
+  done <<< "$repositories_output"
+
+  [[ "${#repositories[@]}" -gt 0 ]] || die "No private repositories with admin access found for $organization."
+  choose "Choose the one private repository that can use this organization secret." "${repositories[@]}"
+  repository="$SELECTED"
+  if secret_exists --repo "$repository"; then
+    die "$repository already has ${SECRET_NAME}. Remove that repository secret before using the organization secret there."
+  fi
+
+  TARGET_LABEL="organization $organization (selected private repository: $repository)"
+  SECRET_ARGS=(--org "$organization" --visibility selected --repos "${repository#*/}")
 }
 
 main() {
@@ -478,6 +343,7 @@ main() {
   if [[ "$REPLACES_EXISTING" == "true" ]]; then
     if [[ "${SECRET_ARGS[0]}" == "--org" ]]; then
       echo "This replaces the existing ${SECRET_NAME} value and organization access configuration." >&2
+      echo "All other repositories lose access to this organization secret." >&2
     else
       echo "This replaces the existing ${SECRET_NAME} value." >&2
     fi
@@ -487,6 +353,9 @@ main() {
   if [[ "${SECRET_ARGS[0]}" == "--org" ]]; then
     echo "A repository secret with the same name takes precedence over this organization secret." >&2
   fi
+
+  echo "Use this login only for one serialized job stream in this private repository." >&2
+  echo "Start each run after the previous run has saved its refreshed auth file." >&2
 
   choose "On a remote machine?" \
     "No, continue on this machine" \
@@ -511,6 +380,7 @@ main() {
 
   AUTH_DIR="$(mktemp -d)"
   "$BOOTSTRAP_SCRIPT" --output "$AUTH_DIR/auth.json"
+  [[ -s "$AUTH_DIR/auth.json" ]] || die "Bootstrap did not produce a nonempty auth file."
   gh secret set "$SECRET_NAME" --app actions "${SECRET_ARGS[@]}" < "$AUTH_DIR/auth.json"
 
   echo "Set ${SECRET_NAME} for $TARGET_LABEL."

@@ -66,11 +66,15 @@ During a run:
 
 Requirements:
 
+- Use ChatGPT auth only for trusted private automation. Public and open-source repositories must use API key authentication.
+- Use one dedicated login per serialized job stream in one private repository. Do not share it across repositories or concurrent jobs.
 - The workflow must pass `agent_auth_file: ${{ secrets.CODEX_AUTH_JSON }}`. GitHub does not let actions read secret values by name.
 - `CODEX_AUTH_JSON` must already exist as a repository secret or an organization secret shared with the repository.
 - A repository secret needs a GitHub App token with `permission-secrets: write`.
 - An organization secret also needs `permission-organization-secrets: write` and the App's `organization_secrets: write` permission.
 - The default `GITHUB_TOKEN` cannot update either secret.
+
+Follow OpenAI's [CI/CD authentication guidance](https://learn.chatgpt.com/docs/auth/ci-cd-auth). Start each workflow run only after the previous run saves its refreshed credential. GitHub [reads repository and organization secrets when a workflow is queued](https://docs.github.com/en/actions/reference/security/secrets). A concurrency group alone cannot prevent a queued run from restoring an old credential. Use separate private repositories and fresh logins for independent streams, or use API key authentication.
 
 Use a separate Codex `auth.json` for this GitHub Actions secret. Running `codex logout` with the same file revokes its refresh token and invalidates `CODEX_AUTH_JSON`. Treat the file like a password, as described in the [Codex authentication documentation](https://developers.openai.com/codex/auth).
 
@@ -86,22 +90,21 @@ gh auth login
 The helper:
 
 1. Lets you choose a repository Actions secret or organization Actions secret.
-2. Lists repositories where you have admin access when repository selection is required.
-3. Lets you choose `selected`, `private`, or `all` visibility for an organization secret.
-4. Lets you choose one or more repositories when you select `selected` visibility.
-5. Shows the target, existing visibility, resulting access, and create or replace action.
-6. Asks whether you are on a remote machine.
-7. On a remote machine, prints one macOS command with the exact repository or organization access you selected, then exits.
-8. Otherwise, confirms the action and opens a fresh Codex browser login in a temporary `CODEX_HOME`.
-9. In the local flow, passes `auth.json` to `gh secret set` from a permission-restricted temporary file, then deletes it.
+2. Lists only private repositories where you have admin access.
+3. Restricts an organization secret to one selected private repository.
+4. Shows the target, existing visibility, resulting access, and create or replace action.
+5. Asks whether you are on a remote machine.
+6. On a remote machine, prints one macOS command for the selected target, then exits.
+7. Otherwise, confirms the action and opens a fresh Codex browser login in a temporary `CODEX_HOME`.
+8. Uploads a nonempty, permission-restricted auth file through `gh secret set`, then deletes the temporary files.
 
-Use the Up and Down arrow keys and press Enter in each single-choice menu. In the selected-repository menu, press Enter to choose one repository. Press Space to select multiple repositories, then press Enter to continue. Press `q` to cancel.
+Use the Up and Down arrow keys and press Enter to choose. Press `q` to cancel. Menus redraw after each movement, including terminals without ANSI support.
 
-On a remote machine, choose `Yes, show a command for my local Mac`. Copy the printed command and run it on a trusted Mac. The Mac needs Node.js, `pbcopy`, `pbpaste`, and an authenticated GitHub CLI. The command opens the browser login locally, uploads the credential to the selected target, and clears the clipboard after a successful upload. The credential does not pass through the remote machine.
+On a remote machine, choose `Yes, show a command for my local Mac`. Copy the printed command and run it on a trusted Mac. The Mac needs Bash, curl, Node.js, and an authenticated GitHub CLI. The command opens the browser login locally and uploads the auth file directly to GitHub. It checks that the file is nonempty before upload and deletes temporary files on exit. The credential does not pass through the clipboard or remote machine.
 
 OpenAI recommends [device-code authentication (beta)](https://developers.openai.com/codex/auth) for general headless Codex login. This helper offers a Mac handoff so the dedicated credential goes directly from the trusted local machine to GitHub.
 
-For organization secrets, choose `Selected repositories`, `Private repositories`, or `All repositories`. Repository selection appears only for `Selected repositories`. Prefer selected access unless broader sharing is required. When replacing a secret, review the current and requested access before confirming. A repository secret named `CODEX_AUTH_JSON` takes precedence over an organization secret with the same name.
+Organization secrets always use `selected` visibility with exactly one private repository. The helper does not offer `private`, `all`, or multiple-repository access. Replacing an existing organization secret also replaces its access list; other repositories lose access. Review the target before confirming. A repository secret named `CODEX_AUTH_JSON` takes precedence over an organization secret with the same name.
 
 Organization secret setup needs GitHub organization owner access. For a GitHub CLI OAuth login, add the required scope before running the helper:
 
@@ -109,7 +112,7 @@ Organization secret setup needs GitHub organization owner access. For a GitHub C
 gh auth refresh --scopes admin:org
 ```
 
-Create a fresh login for each repository or organization secret. Do not reuse one generated `auth.json` across separate secrets.
+Create a fresh login for each serialized job stream. Do not reuse one generated `auth.json` across separate secrets or repositories.
 
 ### Manual macOS clipboard setup
 
@@ -119,8 +122,4 @@ Create that separate file locally without touching your normal `~/.codex` login:
 curl -fsSL https://raw.githubusercontent.com/sudden-network/agent/main/scripts/bootstrap-codex-auth.sh | bash
 ```
 
-The script uses Codex browser login with a fresh temporary `CODEX_HOME` and copies `auth.json` with macOS `pbcopy`. Paste it into `CODEX_AUTH_JSON`, or pipe it from the clipboard:
-
-```bash
-bash -o pipefail -c 'pbpaste | gh secret set CODEX_AUTH_JSON --app actions --repo OWNER/REPOSITORY && pbcopy </dev/null'
-```
+The script uses Codex browser login with a fresh temporary `CODEX_HOME` and copies `auth.json` with macOS `pbcopy`. Paste it into the private repository's `CODEX_AUTH_JSON` secret in GitHub Settings, then clear the clipboard with `pbcopy </dev/null`. For command-line uploads, use the setup helper's validated file flow above.

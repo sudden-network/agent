@@ -67,13 +67,13 @@ Treat `agent_auth_file` like a password (it grants access to the underlying agen
 
 For the default agent (`codex`), `agent_auth_file` can be used to inject Codex's `auth.json` (from `~/.codex/auth.json`) so the CLI can use a ChatGPT subscription.
 
-To use Codex with a ChatGPT subscription in GitHub Actions, create and upload a dedicated `CODEX_AUTH_JSON` secret:
+For trusted automation in a private repository, create a dedicated `CODEX_AUTH_JSON` secret for one serialized Codex job stream:
 
 ```bash
 ./scripts/setup-codex-auth-secret.sh
 ```
 
-The helper uses `gh` and arrow-key menus to select a personal repository, an organization repository, or an organization secret. For an organization secret, choose its visibility and any selected repositories. If you are on a remote machine, the helper prints one macOS command that uploads the credential to the exact target you selected. See the [GitHub App setup](github-app/README.md) for prerequisites, remote setup, manual setup, and workflow configuration.
+The helper uses `gh` and arrow-key menus to select one private repository. Store the credential in a repository secret or an organization secret restricted to that repository. If you are on a remote machine, the helper prints one macOS command that uploads the credential to the exact target you selected. See the [GitHub App setup](github-app/README.md) for prerequisites, remote setup, manual setup, and workflow configuration.
 
 ## Permissions
 

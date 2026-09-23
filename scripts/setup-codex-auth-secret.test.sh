@@ -101,6 +101,10 @@ if [[ "$1" == "org" && "$2" == "list" ]]; then
 fi
 
 if [[ "$1" == "repo" && "$2" == "list" ]]; then
+  if [[ " $* " != *" --visibility private "* ]]; then
+    echo "$3/public-repo"
+    exit 0
+  fi
   if [[ "${TEST_EMPTY_REPOS:-}" == "true" ]]; then
     exit 0
   fi
@@ -145,7 +149,12 @@ set -euo pipefail
 printf '%s\n' "$*" >> "$TEST_NPX_LOG"
 grep -Fq 'cli_auth_credentials_store = "file"' "$CODEX_HOME/config.toml"
 grep -Fq 'forced_login_method = "chatgpt"' "$CODEX_HOME/config.toml"
-printf '%s' '{"test":"TEST_ONLY_AUTH"}' > "$CODEX_HOME/auth.json"
+[[ "${TEST_LOGIN_FAIL:-}" != "true" ]] || exit 1
+if [[ "${TEST_EMPTY_AUTH:-}" == "true" ]]; then
+  : > "$CODEX_HOME/auth.json"
+else
+  printf '%s' '{"test":"TEST_ONLY_AUTH"}' > "$CODEX_HOME/auth.json"
+fi
 EOF
 
   cat > "$MOCK_BIN/pbcopy" <<'EOF'
@@ -173,8 +182,13 @@ EOF
   cat > "$MOCK_BIN/curl" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
+[[ "$1" == "-fsSL" && "$3" == "-o" ]] || exit 1
+# Copy the real bootstrap, including its output-file validation.
+cp "$TEST_BOOTSTRAP_SCRIPT" "$4"
 [[ "${TEST_CURL_FAIL:-}" != "true" ]] || exit 22
-printf '%s\n' "printf '%s' '{\"test\":\"TEST_ONLY_AUTH\"}' | pbcopy"
+if [[ "${TEST_BOOTSTRAP_EMPTY_OUTPUT:-}" == "true" ]]; then
+  printf '%s\n' ': > "$2"' > "$4"
+fi
 EOF
 
   chmod +x "$MOCK_BIN/gh" "$MOCK_BIN/npx" "$MOCK_BIN/pbcopy" "$MOCK_BIN/pbpaste" \
@@ -189,6 +203,10 @@ EOF
   export TEST_GH_AUTH_FAIL=""
   export TEST_GH_SET_FAIL=""
   export TEST_CURL_FAIL=""
+  export TEST_LOGIN_FAIL=""
+  export TEST_EMPTY_AUTH=""
+  export TEST_BOOTSTRAP_EMPTY_OUTPUT=""
+  export TEST_BOOTSTRAP_SCRIPT="$BOOTSTRAP_SCRIPT"
   export TEST_EMPTY_ORGS=""
   export TEST_EMPTY_REPOS=""
   export TEST_REPO_SECRET_EXISTS=""
@@ -225,7 +243,7 @@ assert_secret_was_uploaded() {
 }
 
 assert_remote_handoff() {
-  local expected_command="$1"
+  local expected_arguments="$1"
 
   [[ ! -s "$NPX_LOG" ]] || fail "Codex login ran on the remote machine."
   [[ ! -s "$CLIPBOARD_LOG" ]] || fail "The remote machine clipboard was used."
@@ -234,7 +252,10 @@ assert_remote_handoff() {
   assert_not_contains "$OUTPUT" "Open the Codex login and continue?"
   assert_not_contains "$OUTPUT" "Set CODEX_AUTH_JSON for"
   assert_contains "$OUTPUT" "On a remote machine?"
-  assert_line "$OUTPUT" "$expected_command"
+  assert_contains "$OUTPUT" 'bash -euo pipefail -c '
+  assert_contains "$OUTPUT" "' _ $expected_arguments"
+  assert_not_contains "$OUTPUT" "pbpaste"
+  assert_not_contains "$OUTPUT" "pbcopy"
   if [[ -n "$(find "$TEMP_DIR" -mindepth 1 -print -quit)" ]]; then
     fail "The remote flow created a temporary auth file."
   fi
@@ -244,17 +265,17 @@ replay_remote_command() {
   local expected_set_command="$1"
   local command
 
-  command="$(grep -F 'bash -o pipefail -c ' "$OUTPUT")"
+  command="$(grep -F 'bash -euo pipefail -c ' "$OUTPUT")"
   : > "$GH_LOG"
   : > "$CLIPBOARD_LOG"
-  export TEST_ALLOW_CLIPBOARD="true"
-  if ! PATH="$MOCK_BIN:$PATH" bash -c "$command" > "$RUN_ROOT/replay-output" 2>&1; then
+  if ! TMPDIR="$TEMP_DIR" PATH="$MOCK_BIN:$PATH" bash -c "$command" > "$RUN_ROOT/replay-output" 2>&1; then
     fail "The generated local command failed."
   fi
   assert_contains "$GH_LOG" "$expected_set_command"
   [[ "$(< "$SECRET_INPUT")" == '{"test":"TEST_ONLY_AUTH"}' ]] || \
     fail "The generated local command changed the secret input."
-  [[ ! -s "$CLIPBOARD_OUTPUT" ]] || fail "The generated local command did not clear the clipboard."
+  assert_not_contains "$RUN_ROOT/replay-output" "TEST_ONLY_AUTH"
+  assert_secret_was_uploaded
 }
 
 test_personal_repository_secret() {
@@ -274,30 +295,31 @@ test_organization_repository_secret() {
   run_success "\n${ARROW_DOWN}\n${ARROW_DOWN}\n\ny\n"
 
   assert_contains "$GH_LOG" $'gh\tsecret\tset\tCODEX_AUTH_JSON\t--app\tactions\t--repo\tacme/app'
+  assert_not_contains "$OUTPUT" "public-repo"
   assert_contains "$OUTPUT" "This creates CODEX_AUTH_JSON."
   assert_secret_was_uploaded
 }
 
 test_new_organization_secret() {
   setup_run
-  run_success "1${ARROW_DOWN}\n\n\n ${ARROW_DOWN} \n\ny\n"
+  # Space must not enable sharing this credential with a second repository.
+  run_success "${ARROW_DOWN}\n\n ${ARROW_DOWN} \n\ny\n"
 
-  assert_contains "$GH_LOG" $'gh\tsecret\tlist\t--app\tactions\t--repo\tacme/api'
   assert_contains "$GH_LOG" $'gh\tsecret\tlist\t--app\tactions\t--repo\tacme/app'
-  assert_contains "$GH_LOG" $'gh\tsecret\tset\tCODEX_AUTH_JSON\t--app\tactions\t--org\tacme\t--visibility\tselected\t--repos\tapi,app'
-  assert_contains "$OUTPUT" "selected repositories: acme/api, acme/app"
-  assert_contains "$OUTPUT" "Use Up/Down arrows to move, Enter to choose one, Space to select multiple, or q to cancel."
-  assert_contains "$OUTPUT" "Selected: 0 | 1/2"
-  assert_not_contains "$OUTPUT" "Choose a listed number"
-  assert_not_contains "$OUTPUT" "comma-separated numbers"
-  assert_not_contains "$OUTPUT" "1) Repository Actions secret"
+  assert_line "$GH_LOG" $'gh\tsecret\tset\tCODEX_AUTH_JSON\t--app\tactions\t--org\tacme\t--visibility\tselected\t--repos\tapp'
+  assert_contains "$OUTPUT" "selected private repository: acme/app"
+  assert_not_contains "$OUTPUT" "All repositories"
+  assert_not_contains "$OUTPUT" "Private repositories"
+  assert_not_contains "$OUTPUT" "public-repo"
+  assert_not_contains "$OUTPUT" "Space to select multiple"
+  assert_contains "$OUTPUT" "one serialized job stream"
   assert_secret_was_uploaded
 }
 
 test_existing_selected_organization_secret() {
   setup_run
   export TEST_ORG_VISIBILITY="selected"
-  run_success "${ARROW_DOWN}\n\n\n${ARROW_DOWN}\n\ny\n"
+  run_success "${ARROW_DOWN}\n\n${ARROW_DOWN}\n\ny\n"
 
   assert_contains "$GH_LOG" $'gh\tsecret\tset\tCODEX_AUTH_JSON\t--app\tactions\t--org\tacme\t--visibility\tselected\t--repos\tapp'
   assert_contains "$OUTPUT" "Current CODEX_AUTH_JSON visibility: selected."
@@ -305,57 +327,54 @@ test_existing_selected_organization_secret() {
   assert_secret_was_uploaded
 }
 
-test_private_organization_secret_skips_repository_selection() {
+test_non_ansi_menu_tracks_arrows() {
   setup_run
-  run_success "${ARROW_DOWN}\n\n${ARROW_DOWN}\n\ny\n"
+  run_success "\n${ARROW_UP}\n${ARROW_DOWN}${ARROW_UP}q"
 
-  assert_contains "$GH_LOG" $'gh\tsecret\tset\tCODEX_AUTH_JSON\t--app\tactions\t--org\tacme\t--visibility\tprivate'
-  assert_not_contains "$GH_LOG" $'gh\trepo\tlist\tacme'
-  assert_not_contains "$GH_LOG" $'--repos'
-  assert_contains "$OUTPUT" "organization acme (private repositories)"
-  assert_secret_was_uploaded
+  assert_line "$OUTPUT" "> acme"
+  assert_line "$OUTPUT" "> acme/app"
+  assert_line "$OUTPUT" "> acme/api"
+  assert_line "$OUTPUT" "  2/2"
+  assert_not_contains "$OUTPUT" $'\033['
+  [[ ! -s "$NPX_LOG" ]] || fail "Codex login ran after cancellation."
 }
 
-test_existing_organization_secret_changes_visibility() {
+test_existing_private_organization_secret_is_restricted() {
   setup_run
   export TEST_ORG_VISIBILITY="private"
-  export TEST_EMPTY_REPOS="true"
-  run_success "${ARROW_DOWN}\n\n${ARROW_UP}\n\ny\n"
+  run_success "${ARROW_DOWN}\n\n\n\ny\n"
 
-  assert_contains "$GH_LOG" $'gh\tsecret\tset\tCODEX_AUTH_JSON\t--app\tactions\t--org\tacme\t--visibility\tall'
-  assert_not_contains "$GH_LOG" $'gh\trepo\tlist\tacme'
-  assert_not_contains "$GH_LOG" $'--repos'
+  assert_line "$GH_LOG" $'gh\tsecret\tset\tCODEX_AUTH_JSON\t--app\tactions\t--org\tacme\t--visibility\tselected\t--repos\tapi'
   assert_contains "$OUTPUT" "Current CODEX_AUTH_JSON visibility: private."
-  assert_contains "$OUTPUT" "organization acme (all repositories)"
+  assert_contains "$OUTPUT" "organization acme (selected private repository: acme/api)"
   assert_contains "$OUTPUT" "This replaces the existing CODEX_AUTH_JSON value and organization access configuration."
   assert_secret_was_uploaded
 }
 
-test_existing_all_organization_secret_can_change_to_private() {
+test_existing_all_organization_secret_is_restricted() {
   setup_run
   export TEST_ORG_VISIBILITY="all"
-  run_success "${ARROW_DOWN}\n\n${ARROW_DOWN}\n\ny\n"
+  run_success "${ARROW_DOWN}\n\n\n\ny\n"
 
-  assert_contains "$GH_LOG" $'gh\tsecret\tset\tCODEX_AUTH_JSON\t--app\tactions\t--org\tacme\t--visibility\tprivate'
-  assert_not_contains "$GH_LOG" $'gh\trepo\tlist\tacme'
-  assert_not_contains "$GH_LOG" $'--repos'
+  assert_line "$GH_LOG" $'gh\tsecret\tset\tCODEX_AUTH_JSON\t--app\tactions\t--org\tacme\t--visibility\tselected\t--repos\tapi'
   assert_contains "$OUTPUT" "Current CODEX_AUTH_JSON visibility: all."
-  assert_contains "$OUTPUT" "organization acme (private repositories)"
+  assert_contains "$OUTPUT" "organization acme (selected private repository: acme/api)"
+  assert_contains "$OUTPUT" "This replaces the existing CODEX_AUTH_JSON value and organization access configuration."
   assert_secret_was_uploaded
 }
 
-test_cancel_at_organization_visibility() {
+test_cancel_at_organization_selection() {
   setup_run
-  run_success "${ARROW_DOWN}\n\nq"
+  run_success "${ARROW_DOWN}\nq"
 
-  [[ ! -s "$NPX_LOG" ]] || fail "Codex login ran after visibility cancellation."
+  [[ ! -s "$NPX_LOG" ]] || fail "Codex login ran after organization cancellation."
   assert_not_contains "$GH_LOG" $'gh\tsecret\tset'
   assert_contains "$OUTPUT" "Cancelled."
 }
 
 test_cancel_at_selected_repository_selection() {
   setup_run
-  run_success "${ARROW_DOWN}\n\n\n q"
+  run_success "${ARROW_DOWN}\n\nq"
 
   [[ ! -s "$NPX_LOG" ]] || fail "Codex login ran after repository selection cancellation."
   assert_not_contains "$GH_LOG" $'gh\tsecret\tset'
@@ -369,7 +388,7 @@ test_empty_selected_organization_repository_list() {
 
   [[ ! -s "$NPX_LOG" ]] || fail "Codex login ran without an eligible organization repository."
   assert_not_contains "$GH_LOG" $'gh\tsecret\tset'
-  assert_contains "$OUTPUT" "No repositories with admin access found for acme."
+  assert_contains "$OUTPUT" "No private repositories with admin access found for acme."
 }
 
 test_cancel_before_login() {
@@ -404,7 +423,7 @@ test_empty_repository_list() {
   export TEST_EMPTY_REPOS="true"
   run_failure '\n\n'
 
-  assert_contains "$OUTPUT" "No repositories with admin access found for alice."
+  assert_contains "$OUTPUT" "No private repositories with admin access found for alice."
   assert_not_contains "$OUTPUT" "unbound variable"
 }
 
@@ -452,57 +471,80 @@ test_remote_repository_handoff() {
   RUN_PATH="$restricted_bin"
   run_success "\n\n\n${ARROW_DOWN}\n"
 
-  assert_remote_handoff \
-    'bash -o pipefail -c '\''curl -fsSL https://raw.githubusercontent.com/sudden-network/agent/main/scripts/bootstrap-codex-auth.sh | bash && pbpaste | gh secret set CODEX_AUTH_JSON --app actions "$@" && pbcopy </dev/null'\'' _ --repo alice/alpha'
+  assert_remote_handoff '--repo alice/alpha'
   replay_remote_command \
     $'gh\tsecret\tset\tCODEX_AUTH_JSON\t--app\tactions\t--repo\talice/alpha'
 }
 
-test_remote_handoff_stops_after_failed_download() {
+assert_remote_command_fails() {
   local command
 
+  command="$(grep -F 'bash -euo pipefail -c ' "$OUTPUT")"
+  : > "$GH_LOG"
+  if TMPDIR="$TEMP_DIR" PATH="$MOCK_BIN:$PATH" bash -c "$command" > "$RUN_ROOT/replay-output" 2>&1; then
+    fail "The generated local command succeeded unexpectedly."
+  fi
+  [[ ! -s "$CLIPBOARD_LOG" ]] || fail "The generated command used the clipboard."
+  assert_not_contains "$RUN_ROOT/replay-output" "TEST_ONLY_AUTH"
+  if [[ -n "$(find "$TEMP_DIR" -mindepth 1 -print -quit)" ]]; then
+    fail "The generated command left temporary files after failure."
+  fi
+}
+
+test_remote_handoff_stops_after_failed_download() {
   setup_run
   run_success "\n\n\n${ARROW_DOWN}\n"
-  command="$(grep -F 'bash -o pipefail -c ' "$OUTPUT")"
-  : > "$GH_LOG"
-  : > "$CLIPBOARD_LOG"
-  export TEST_ALLOW_CLIPBOARD="true"
   export TEST_CURL_FAIL="true"
-
-  if PATH="$MOCK_BIN:$PATH" bash -c "$command" > "$RUN_ROOT/replay-output" 2>&1; then
-    fail "The generated local command continued after a failed download."
-  fi
+  assert_remote_command_fails
   assert_not_contains "$GH_LOG" $'gh\tsecret\tset'
-  assert_not_contains "$CLIPBOARD_LOG" "pbpaste called"
+  [[ ! -s "$NPX_LOG" ]] || fail "A failed download was executed."
   [[ ! -e "$SECRET_INPUT" ]] || fail "A failed bootstrap download uploaded a secret."
 }
 
 test_remote_selected_organization_handoff() {
   setup_run
-  run_success "${ARROW_DOWN}\n\n\n ${ARROW_DOWN} \n${ARROW_DOWN}\n"
-
-  assert_remote_handoff \
-    'bash -o pipefail -c '\''curl -fsSL https://raw.githubusercontent.com/sudden-network/agent/main/scripts/bootstrap-codex-auth.sh | bash && pbpaste | gh secret set CODEX_AUTH_JSON --app actions "$@" && pbcopy </dev/null'\'' _ --org acme --visibility selected --repos api\,app'
-  replay_remote_command \
-    $'gh\tsecret\tset\tCODEX_AUTH_JSON\t--app\tactions\t--org\tacme\t--visibility\tselected\t--repos\tapi,app'
-}
-
-test_remote_private_organization_handoff() {
-  setup_run
   run_success "${ARROW_DOWN}\n\n${ARROW_DOWN}\n${ARROW_DOWN}\n"
 
-  assert_remote_handoff \
-    'bash -o pipefail -c '\''curl -fsSL https://raw.githubusercontent.com/sudden-network/agent/main/scripts/bootstrap-codex-auth.sh | bash && pbpaste | gh secret set CODEX_AUTH_JSON --app actions "$@" && pbcopy </dev/null'\'' _ --org acme --visibility private'
-  assert_not_contains "$OUTPUT" "--repos"
+  assert_remote_handoff '--org acme --visibility selected --repos app'
+  replay_remote_command \
+    $'gh\tsecret\tset\tCODEX_AUTH_JSON\t--app\tactions\t--org\tacme\t--visibility\tselected\t--repos\tapp'
 }
 
-test_remote_all_organization_handoff() {
+test_remote_handoff_rejects_empty_file() {
   setup_run
-  run_success "${ARROW_DOWN}\n\n${ARROW_UP}\n${ARROW_DOWN}\n"
+  run_success "\n\n\n${ARROW_DOWN}\n"
+  export TEST_BOOTSTRAP_EMPTY_OUTPUT="true"
+  assert_remote_command_fails
+  assert_not_contains "$GH_LOG" $'gh\tsecret\tset'
+  [[ ! -e "$SECRET_INPUT" ]] || fail "The failed bootstrap uploaded a secret."
+}
 
-  assert_remote_handoff \
-    'bash -o pipefail -c '\''curl -fsSL https://raw.githubusercontent.com/sudden-network/agent/main/scripts/bootstrap-codex-auth.sh | bash && pbpaste | gh secret set CODEX_AUTH_JSON --app actions "$@" && pbcopy </dev/null'\'' _ --org acme --visibility all'
-  assert_not_contains "$OUTPUT" "--repos"
+test_remote_handoff_stops_after_failed_login() {
+  setup_run
+  run_success "\n\n\n${ARROW_DOWN}\n"
+  export TEST_LOGIN_FAIL="true"
+  assert_remote_command_fails
+  assert_not_contains "$GH_LOG" $'gh\tsecret\tset'
+  [[ ! -e "$SECRET_INPUT" ]] || fail "The failed bootstrap uploaded a secret."
+}
+
+test_remote_handoff_cleans_files_after_failed_upload() {
+  setup_run
+  run_success "\n\n\n${ARROW_DOWN}\n"
+  export TEST_GH_SET_FAIL="true"
+  assert_remote_command_fails
+  [[ -f "$SECRET_INPUT" ]] || fail "The failed upload did not receive the auth file."
+}
+
+test_local_flow_rejects_empty_auth() {
+  setup_run
+  export TEST_EMPTY_AUTH="true"
+  run_failure '\n\n\n\ny\n'
+  assert_not_contains "$GH_LOG" $'gh\tsecret\tset'
+  [[ ! -e "$SECRET_INPUT" ]] || fail "An empty auth file was uploaded."
+  if [[ -n "$(find "$TEMP_DIR" -mindepth 1 -print -quit)" ]]; then
+    fail "The failed bootstrap left temporary files."
+  fi
 }
 
 test_manual_clipboard_bootstrap() {
@@ -524,10 +566,10 @@ test_personal_repository_secret
 test_organization_repository_secret
 test_new_organization_secret
 test_existing_selected_organization_secret
-test_private_organization_secret_skips_repository_selection
-test_existing_organization_secret_changes_visibility
-test_existing_all_organization_secret_can_change_to_private
-test_cancel_at_organization_visibility
+test_non_ansi_menu_tracks_arrows
+test_existing_private_organization_secret_is_restricted
+test_existing_all_organization_secret_is_restricted
+test_cancel_at_organization_selection
 test_cancel_at_selected_repository_selection
 test_empty_selected_organization_repository_list
 test_cancel_before_login
@@ -540,8 +582,10 @@ test_failed_secret_upload_cleans_auth_file
 test_remote_repository_handoff
 test_remote_handoff_stops_after_failed_download
 test_remote_selected_organization_handoff
-test_remote_private_organization_handoff
-test_remote_all_organization_handoff
+test_remote_handoff_rejects_empty_file
+test_remote_handoff_stops_after_failed_login
+test_remote_handoff_cleans_files_after_failed_upload
+test_local_flow_rejects_empty_auth
 test_manual_clipboard_bootstrap
 
 echo "setup-codex-auth-secret tests passed ($TEST_NUMBER)"
