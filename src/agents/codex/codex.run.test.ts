@@ -44,15 +44,22 @@ describe('codex run', () => {
     expect(options.env).toBeUndefined();
   });
 
-  it('passes model config', async () => {
-    inputsMock.model = 'gpt-5.6-sol/xhigh/fast';
+  it.each([
+    ['gpt-5.6-sol', 'xhigh'],
+    ['gpt-6-astra', 'xhigh'],
+    ['gpt-6-astra', 'max'],
+    ['gpt-6-astra', 'ultra'],
+    ['gpt-6-sol', 'xhigh'],
+    ['gpt-6-luna', 'xhigh'],
+  ])('passes %s/%s/fast model config', async (model, reasoningEffort) => {
+    inputsMock.model = `${model}/${reasoningEffort}/fast`;
 
     await run('prompt');
 
     const args = runCommandMock.mock.calls[0][1];
     expect(args).toEqual(expect.arrayContaining([
-      '--model=gpt-5.6-sol',
-      '--config=model_reasoning_effort=xhigh',
+      `--model=${model}`,
+      `--config=model_reasoning_effort=${reasoningEffort}`,
       '--config=service_tier=fast',
     ]));
   });
