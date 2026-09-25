@@ -46,13 +46,15 @@ This makes iterative work practical: the agent remembers what it already covered
 
 ### Codex model selection
 
-Set `model` to `<model>[/<reasoning effort>[/<service tier>]]`. For example, use `gpt-5.6-sol/xhigh/fast` for Sol with extra-high reasoning and fast mode.
+Set `model` to `<model>[/<reasoning effort>[/<service tier>]]`. For example, use `gpt-6-sol/high/fast` for Sol with high reasoning and fast mode.
 
-Current GPT-5.6 choices are:
+The bundled Codex CLI includes these GPT-6 model choices:
 
-- `gpt-5.6-sol` for complex work where capability matters most.
-- `gpt-5.6-terra` to balance capability and cost.
-- `gpt-5.6-luna` for efficient, high-volume work.
+- `gpt-6-astra` for the highest-capability tasks.
+- `gpt-6-sol` for complex coding and agentic work.
+- `gpt-6-luna` for efficient, high-volume work.
+
+GPT-5.6 model IDs remain available where supported. Reasoning effort and service tier availability depend on the selected model and account.
 
 See OpenAI's [model guidance](https://developers.openai.com/api/docs/guides/latest-model) for current model and reasoning options. Omit `model` to let Codex choose its default.
 
