@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CODEX_VERSION="0.145.0"
+CODEX_VERSION="0.156.1"
 CODEX_HOME_DIR="$(mktemp -d)"
 
 cleanup() {
