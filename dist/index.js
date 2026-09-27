@@ -91164,21 +91164,21 @@ exports.fetchPermission = void 0;
 const github_1 = __nccwpck_require__(84903);
 const error_1 = __nccwpck_require__(83294);
 const octokit_1 = __nccwpck_require__(64517);
-const fetchPermission = async () => {
-    const { actor, repo: { owner, repo } } = github_1.context;
+const fetchPermission = async (username = github_1.context.actor) => {
+    const { repo: { owner, repo } } = github_1.context;
     try {
         const { data } = await (0, octokit_1.getOctokit)().rest.repos.getCollaboratorPermissionLevel({
             owner,
             repo,
-            username: actor,
+            username,
         });
         return data.permission ?? 'none';
     }
     catch (error) {
         if ((0, error_1.isNotFoundError)(error)) {
-            throw new Error(`Actor '${actor}' is not a collaborator on ${owner}/${repo}; write access is required.`);
+            return 'none';
         }
-        throw new Error(`Failed to verify permissions for '${actor}': ${error instanceof Error ? error.message : String(error)}`);
+        throw new Error(`Failed to verify permissions for '${username}': ${error instanceof Error ? error.message : String(error)}`);
     }
 };
 exports.fetchPermission = fetchPermission;
@@ -91289,26 +91289,31 @@ exports.updateActionsSecret = updateActionsSecret;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.fetchTrustedCollaborators = exports.ensureWriteAccess = exports.isTrustedCommentAuthor = void 0;
+exports.fetchTrustedCollaborators = exports.ensureWriteAccess = exports.trustedCollaboratorsForEvent = void 0;
 const github_1 = __nccwpck_require__(84903);
 const permissions_1 = __nccwpck_require__(37896);
 const octokit_1 = __nccwpck_require__(64517);
-const isTrustedCommentAuthor = (trustedCollaborators) => {
+const WRITE_PERMISSIONS = new Set(['admin', 'write', 'maintain']);
+const trustedCollaboratorsForEvent = async (trustedCollaborators) => {
     if (!(['issue_comment', 'pull_request_review_comment'].includes(github_1.context.eventName)))
-        return true;
+        return trustedCollaborators;
     const author = github_1.context.payload.comment?.user?.login;
     if (!author) {
         throw new Error('Missing comment author login.');
     }
-    return trustedCollaborators.includes(author);
+    if (!WRITE_PERMISSIONS.has(await (0, permissions_1.fetchPermission)(author)))
+        return null;
+    return trustedCollaborators.includes(author)
+        ? trustedCollaborators
+        : [...trustedCollaborators, author];
 };
-exports.isTrustedCommentAuthor = isTrustedCommentAuthor;
+exports.trustedCollaboratorsForEvent = trustedCollaboratorsForEvent;
 const ensureWriteAccess = async () => {
     const { actor, repo: { owner, repo } } = github_1.context;
     if (actor.endsWith('[bot]'))
         return;
     const permission = await (0, permissions_1.fetchPermission)();
-    if (!(["admin", "write", "maintain"].includes(permission))) {
+    if (!WRITE_PERMISSIONS.has(permission)) {
         throw new Error(`Actor '${actor}' must have write access to ${owner}/${repo}. Detected permission: '${permission}'.`);
     }
 };
@@ -173215,7 +173220,8 @@ const main = async () => {
             (0, agents_1.getAgent)(),
             (0, security_1.ensureWriteAccess)(),
         ]);
-        if (!(0, security_1.isTrustedCommentAuthor)(trustedCollaborators)) {
+        const trustedForPrompt = await (0, security_1.trustedCollaboratorsForEvent)(trustedCollaborators);
+        if (!trustedForPrompt) {
             return (0, core_1.info)('Skipping run: comment author is not trusted.');
         }
         try {
@@ -173225,7 +173231,7 @@ const main = async () => {
             const { resumed } = await agent.bootstrap({
                 mcpServers,
             });
-            await agent.run((0, prompt_1.buildPrompt)({ resumed, trustedCollaborators, tokenActor }));
+            await agent.run((0, prompt_1.buildPrompt)({ resumed, trustedCollaborators: trustedForPrompt, tokenActor }));
         }
         finally {
             await Promise.allSettled([
