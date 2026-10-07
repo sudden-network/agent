@@ -2,7 +2,7 @@
 set -euo pipefail
 umask 077
 
-CODEX_VERSION="0.145.0"
+CODEX_VERSION="0.156.1"
 OUTPUT_FILE=""
 
 if [[ "$#" -ne 0 ]]; then

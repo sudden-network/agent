@@ -234,7 +234,7 @@ assert_secret_was_uploaded() {
   [[ "$(< "$SECRET_INPUT")" == '{"test":"TEST_ONLY_AUTH"}' ]] || fail "The GitHub secret input changed."
   assert_not_contains "$OUTPUT" "TEST_ONLY_AUTH"
   assert_not_contains "$GH_LOG" "TEST_ONLY_AUTH"
-  assert_contains "$NPX_LOG" "--yes @openai/codex@0.145.0 login"
+  assert_contains "$NPX_LOG" "--yes @openai/codex@0.156.1 login"
   [[ ! -s "$CLIPBOARD_LOG" ]] || fail "The automatic flow used the clipboard."
   assert_not_contains "$OUTPUT" "pbpaste | gh secret set"
   if [[ -n "$(find "$TEMP_DIR" -mindepth 1 -print -quit)" ]]; then
