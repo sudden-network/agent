@@ -45,14 +45,14 @@ describe('codex run', () => {
   });
 
   it('passes model config', async () => {
-    inputsMock.model = 'gpt-5.6-sol/xhigh/fast';
+    inputsMock.model = 'gpt-6.1-sol/high/fast';
 
     await run('prompt');
 
     const args = runCommandMock.mock.calls[0][1];
     expect(args).toEqual(expect.arrayContaining([
-      '--model=gpt-5.6-sol',
-      '--config=model_reasoning_effort=xhigh',
+      '--model=gpt-6.1-sol',
+      '--config=model_reasoning_effort=high',
       '--config=service_tier=fast',
     ]));
   });
