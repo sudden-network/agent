@@ -2,22 +2,22 @@ import { context } from '@actions/github';
 import { isNotFoundError } from './error';
 import { getOctokit } from './octokit';
 
-export const fetchPermission = async (): Promise<string> => {
-  const { actor, repo: { owner, repo } } = context;
+export const fetchPermission = async (username = context.actor): Promise<string> => {
+  const { repo: { owner, repo } } = context;
 
   try {
     const { data } = await getOctokit().rest.repos.getCollaboratorPermissionLevel({
       owner,
       repo,
-      username: actor,
+      username,
     });
 
     return data.permission ?? 'none';
   } catch (error) {
     if (isNotFoundError(error)) {
-      throw new Error(`Actor '${actor}' is not a collaborator on ${owner}/${repo}; write access is required.`);
+      return 'none';
     }
 
-    throw new Error(`Failed to verify permissions for '${actor}': ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(`Failed to verify permissions for '${username}': ${error instanceof Error ? error.message : String(error)}`);
   }
 };

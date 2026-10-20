@@ -15,7 +15,7 @@ jest.mock('./octokit', () => ({
   getOctokit: jest.fn(),
 }));
 
-import { ensureWriteAccess, fetchTrustedCollaborators, isTrustedCommentAuthor } from './security';
+import { ensureWriteAccess, fetchTrustedCollaborators, trustedCollaboratorsForEvent } from './security';
 import { fetchPermission } from './permissions';
 import { getOctokit } from './octokit';
 
@@ -75,37 +75,52 @@ describe('fetchTrustedCollaborators', () => {
   });
 });
 
-describe('isTrustedCommentAuthor', () => {
+describe('trustedCollaboratorsForEvent', () => {
   afterEach(() => {
+    contextMock.actor = 'octo';
     contextMock.eventName = 'pull_request';
     contextMock.payload = {};
+    fetchPermissionMock.mockReset();
   });
 
-  it('allows non-comment events', () => {
+  it('leaves non-comment events unchanged', async () => {
     contextMock.eventName = 'pull_request';
     contextMock.payload = {};
 
-    expect(isTrustedCommentAuthor(['octo'])).toBe(true);
+    await expect(trustedCollaboratorsForEvent(['octo'])).resolves.toEqual(['octo']);
+    expect(fetchPermissionMock).not.toHaveBeenCalled();
   });
 
-  it('allows trusted comment authors', () => {
+  it('trusts an admin comment author omitted from the collaborator list', async () => {
+    contextMock.eventName = 'issue_comment';
+    contextMock.actor = 'reviewer';
+    contextMock.payload = { comment: { user: { login: 'octo' } } };
+    fetchPermissionMock.mockResolvedValue('admin');
+
+    await expect(trustedCollaboratorsForEvent(['reviewer'])).resolves.toEqual(['reviewer', 'octo']);
+    expect(fetchPermissionMock).toHaveBeenCalledWith('octo');
+  });
+
+  it.each(['write', 'maintain'])('trusts a %s comment author already listed', async (permission) => {
     contextMock.eventName = 'issue_comment';
     contextMock.payload = { comment: { user: { login: 'octo' } } };
+    fetchPermissionMock.mockResolvedValue(permission);
 
-    expect(isTrustedCommentAuthor(['octo', 'hubot'])).toBe(true);
+    await expect(trustedCollaboratorsForEvent(['octo'])).resolves.toEqual(['octo']);
   });
 
-  it('rejects untrusted comment authors', () => {
+  it.each(['read', 'triage', 'none'])('rejects a %s comment author even if listed', async (permission) => {
     contextMock.eventName = 'pull_request_review_comment';
     contextMock.payload = { comment: { user: { login: 'hubot' } } };
+    fetchPermissionMock.mockResolvedValue(permission);
 
-    expect(isTrustedCommentAuthor(['octo'])).toBe(false);
+    await expect(trustedCollaboratorsForEvent(['hubot'])).resolves.toBeNull();
   });
 
-  it('rejects missing comment author', () => {
+  it('rejects missing comment author', async () => {
     contextMock.eventName = 'issue_comment';
     contextMock.payload = { comment: {} };
 
-    expect(() => isTrustedCommentAuthor(['octo'])).toThrow('Missing comment author login.');
+    await expect(trustedCollaboratorsForEvent(['octo'])).rejects.toThrow('Missing comment author login.');
   });
 });

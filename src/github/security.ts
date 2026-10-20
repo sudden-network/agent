@@ -2,8 +2,10 @@ import { context } from '@actions/github';
 import { fetchPermission } from './permissions';
 import { getOctokit } from './octokit';
 
-export const isTrustedCommentAuthor = (trustedCollaborators: string[]): boolean => {
-  if (!(['issue_comment', 'pull_request_review_comment'].includes(context.eventName))) return true;
+const WRITE_PERMISSIONS = new Set(['admin', 'write', 'maintain']);
+
+export const trustedCollaboratorsForEvent = async (trustedCollaborators: string[]): Promise<string[] | null> => {
+  if (!(['issue_comment', 'pull_request_review_comment'].includes(context.eventName))) return trustedCollaborators;
 
   const author = context.payload.comment?.user?.login;
 
@@ -11,7 +13,11 @@ export const isTrustedCommentAuthor = (trustedCollaborators: string[]): boolean 
     throw new Error('Missing comment author login.');
   }
 
-  return trustedCollaborators.includes(author);
+  if (!WRITE_PERMISSIONS.has(await fetchPermission(author))) return null;
+
+  return trustedCollaborators.includes(author)
+    ? trustedCollaborators
+    : [...trustedCollaborators, author];
 };
 
 export const ensureWriteAccess = async (): Promise<void> => {
@@ -21,7 +27,7 @@ export const ensureWriteAccess = async (): Promise<void> => {
 
   const permission = await fetchPermission();
 
-  if (!(["admin", "write", "maintain"].includes(permission))) {
+  if (!WRITE_PERMISSIONS.has(permission)) {
     throw new Error(`Actor '${actor}' must have write access to ${owner}/${repo}. Detected permission: '${permission}'.`);
   }
 };

@@ -5,7 +5,7 @@ import { isIssueOrPullRequest } from './github/context';
 import { githubMcpServer } from './github/mcp';
 import { buildPrompt } from './prompt';
 import { resolveTokenActor } from './github/identity';
-import { fetchTrustedCollaborators, ensureWriteAccess, isTrustedCommentAuthor } from './github/security';
+import { fetchTrustedCollaborators, ensureWriteAccess, trustedCollaboratorsForEvent } from './github/security';
 import { inputs } from './github/input';
 import type { McpServerConfig } from './mcp';
 
@@ -20,7 +20,8 @@ const main = async () => {
       ensureWriteAccess(),
     ]);
 
-    if (!isTrustedCommentAuthor(trustedCollaborators)) {
+    const trustedForPrompt = await trustedCollaboratorsForEvent(trustedCollaborators);
+    if (!trustedForPrompt) {
       return info('Skipping run: comment author is not trusted.');
     }
 
@@ -33,7 +34,7 @@ const main = async () => {
         mcpServers,
       });
 
-      await agent.run(buildPrompt({ resumed, trustedCollaborators, tokenActor }));
+      await agent.run(buildPrompt({ resumed, trustedCollaborators: trustedForPrompt, tokenActor }));
     } finally {
       await Promise.allSettled([
         githubMcpServer.stop(),
