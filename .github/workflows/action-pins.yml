@@ -30,6 +30,10 @@ jobs:
           python -m pip install --disable-pip-version-check --no-deps
           --only-binary=:all: --require-hashes
           -r .github/requirements-action-pins.txt
+      - name: Check composite Docker action digests
+        run: |
+          python -m unittest discover -s .github/scripts -p "test_composite_images.py"
+          python .github/scripts/check_composite_images.py
       - name: Reject mutable action, reusable workflow, and image references
         shell: bash
         run: |

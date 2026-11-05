@@ -19,6 +19,10 @@ or image references. Invalid workflow input also fails the check. Other zizmor
 findings are outside this check's scope. Dependabot maintains the scanner's pip
 entry under `/.github`; keep its wheel hashes when updating it.
 
+A supplemental YAML check covers Docker steps inside composite actions, which
+zizmor currently misses. Its regression tests run before the scan. The PyYAML
+parser is also checksum-locked; preserve its Python 3.13 Linux wheel hashes.
+
 Pinning prevents a tag from silently changing the downloaded dependency. It does
 not establish that pinned code is trustworthy, lock dependencies downloaded by
 that code, or replace token restrictions and human review.

@@ -1,4 +1,4 @@
-# zizmor has no runtime Python dependencies. Verify every downloaded wheel.
+# Verify every downloaded wheel. zizmor and PyYAML have no runtime dependencies.
 zizmor==1.31.1 \
     --hash=sha256:9696d3c10919a3a2eb086c102f1bc10717f53ef3700a0d6c55a709c274995476 \
     --hash=sha256:4a70ee3c2721122aff04d5bbad5e448d15384f45de2ecb3c9493fe9dac2bc95f \
@@ -10,3 +10,8 @@ zizmor==1.31.1 \
     --hash=sha256:e7fdf82d31cc67eb1d5030bf2372b25ee2a1c3ad05017e18da70ed138c4accd6 \
     --hash=sha256:d1d2cdc23e7b11f2d6cbda0df3bee62ee7993a60647650f51c316ccd33365469 \
     --hash=sha256:3b35b393e8d437e275c7e399047c9892ccc290f3fc5e6aeb9f65a5d3b2a470e0
+
+# PyYAML wheels for the Python 3.13 Linux CI runner.
+PyYAML==6.0.3 \
+    --hash=sha256:0f29edc409a6392443abf94b9cf89ce99889a1dd5376d94316ae5145dfedd5d6 \
+    --hash=sha256:ee2922902c45ae8ccada2c5b501ab86c36525b883eff4255313a253a3160861c
