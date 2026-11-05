@@ -109,3 +109,5 @@ This action uses generative AI to produce responses and automation. It runs with
 ## License
 
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+
+Workflow dependency updates follow [the Actions maintenance guide](.github/ACTIONS.md).
