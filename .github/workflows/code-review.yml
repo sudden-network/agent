@@ -33,10 +33,10 @@ jobs:
       actions: read # resume sessions via artifacts
     steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
 
       - name: Run sudden-agent
-        uses: ./
+        uses: $/
         with:
           agent_auth_file: ${{ secrets.CODEX_AUTH_JSON }}
           model: gpt-5.6-sol/xhigh/fast
