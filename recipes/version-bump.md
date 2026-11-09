@@ -26,7 +26,7 @@ jobs:
       actions: read # resume sessions via artifacts
     steps:
       - name: Run sudden-agent
-        uses: sudden-network/agent@310d63c51531380a74429c518faae5348e74df59 # v1
+        uses: sudden-network/agent@v1
         with:
           agent_api_key: ${{ secrets.OPENAI_API_KEY }}
           resume: true

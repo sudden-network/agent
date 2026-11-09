@@ -34,10 +34,10 @@ jobs:
       actions: read # resume sessions via artifacts
     steps:
       - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@v4
 
       - name: Run sudden-agent
-        uses: sudden-network/agent@310d63c51531380a74429c518faae5348e74df59 # v1
+        uses: sudden-network/agent@v1
         with:
           agent_api_key: ${{ secrets.OPENAI_API_KEY }}
           resume: true

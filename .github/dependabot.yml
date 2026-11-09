@@ -2,13 +2,6 @@ version: 2
 updates:
   - package-ecosystem: "github-actions"
     directory: "/"
-    target-branch: "main"
     schedule:
-      interval: "weekly"
-
-  # Checksum-locked scanner used by the Action Pins check.
-  - package-ecosystem: "pip"
-    directory: "/.github"
-    target-branch: "main"
-    schedule:
-      interval: "weekly"
+      interval: "monthly"
+    open-pull-requests-limit: 1

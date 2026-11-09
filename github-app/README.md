@@ -36,14 +36,14 @@ Use org-level settings for reuse across repos, or repo-level settings for a sing
 ## Use in a workflow
 
 ```yaml
-- uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+- uses: actions/create-github-app-token@v1
   id: app_token
   with:
     app-id: ${{ vars.WORKFLOW_AGENT_GITHUB_APP_ID }}
     private-key: ${{ secrets.WORKFLOW_AGENT_GITHUB_APP_PRIVATE_KEY }}
     permission-secrets: write
 
-- uses: sudden-network/agent@310d63c51531380a74429c518faae5348e74df59 # v1
+- uses: sudden-network/agent@v1
   with:
     agent_auth_file: ${{ secrets.CODEX_AUTH_JSON }}
     github_token: ${{ steps.app_token.outputs.token }}
@@ -74,7 +74,7 @@ Use a separate Codex `auth.json` for this GitHub Actions secret. Running `codex 
 Create that separate file locally without touching your normal `~/.codex` login:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sudden-network/agent/310d63c51531380a74429c518faae5348e74df59/scripts/bootstrap-codex-auth.sh | bash
+curl -fsSL https://raw.githubusercontent.com/sudden-network/agent/main/scripts/bootstrap-codex-auth.sh | bash
 ```
 
 The script uses Codex browser login with a fresh temporary `CODEX_HOME`. Paste the copied `auth.json` into the `CODEX_AUTH_JSON` GitHub Actions secret. Run it once per repo or org secret; do not reuse one generated `auth.json` across repos or orgs.
