@@ -36,7 +36,7 @@ jobs:
         uses: actions/checkout@v7.0.1
 
       - name: Run sudden-agent
-        uses: ./
+        uses: $/
         with:
           agent_auth_file: ${{ secrets.CODEX_AUTH_JSON }}
           model: gpt-5.6-sol/xhigh/fast
